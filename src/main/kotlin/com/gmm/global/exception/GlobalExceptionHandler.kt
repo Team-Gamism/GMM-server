@@ -30,7 +30,7 @@ class GlobalExceptionHandler(private val properties: GmmProperties) {
 
     @ExceptionHandler(MissingServletRequestPartException::class)
     fun handleMissingPart(e: MissingServletRequestPartException): ResponseEntity<ErrorResponse> =
-        if (e.requestPartName == "build") respond(ErrorCode.BUILD_REQUIRED) else respond(ErrorCode.INVALID_REQUEST)
+        if (e.requestPartName == "buildFile") respond(ErrorCode.BUILD_REQUIRED) else respond(ErrorCode.INVALID_REQUEST)
 
     @ExceptionHandler(
         HttpMessageNotReadableException::class,

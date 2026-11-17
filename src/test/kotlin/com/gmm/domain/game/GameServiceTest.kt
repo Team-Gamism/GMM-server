@@ -62,10 +62,11 @@ class GameServiceTest :
             service.checkCanUpload(admin, "jam")
         }
 
-        test("returns 404 for a missing jam") {
+        test("rejects a missing jam with 400 so the upload form stays") {
             every { jamRepository.findById("missing") } returns Optional.empty()
 
-            shouldThrow<GmmException> { service.checkCanUpload(owner, "missing") }.code shouldBe ErrorCode.JAM_NOT_FOUND
+            shouldThrow<GmmException> { service.checkCanUpload(owner, "missing") }.code shouldBe
+                ErrorCode.INVALID_GAME_INPUT
         }
 
         test("hides a pending game from other users and forbids editing an approved one") {

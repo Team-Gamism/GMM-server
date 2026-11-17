@@ -25,7 +25,11 @@ class GameService(
     /** Participants upload only while the jam is ongoing. Admins upload at any time. */
     @Transactional(readOnly = true)
     fun checkCanUpload(user: AuthUser, jamId: String) {
-        val jam = jamRepository.findById(jamId).orElseThrow { GmmException(ErrorCode.JAM_NOT_FOUND) }
+        // 400, not 404: the frontend turns 404 into the not-found page, which loses the upload form.
+        val jam =
+            jamRepository.findById(jamId).orElseThrow {
+                GmmException(ErrorCode.INVALID_GAME_INPUT, "게임잼을 선택해 주세요.")
+            }
         if (!user.isAdmin && !jam.statusAt(clock.instant()).acceptsUploads) {
             throw GmmException(ErrorCode.JAM_NOT_ONGOING)
         }

@@ -24,7 +24,7 @@ class GameController(private val gameUploadService: GameUploadService) {
     fun create(
         @CurrentUser user: AuthUser,
         @RequestPart("data") data: Part,
-        @RequestPart("build") build: MultipartFile,
+        @RequestPart("buildFile") build: MultipartFile,
     ): ResponseEntity<GameResponse> =
         ResponseEntity.status(HttpStatus.CREATED).body(gameUploadService.create(user, readText(data), build))
 
@@ -33,7 +33,7 @@ class GameController(private val gameUploadService: GameUploadService) {
         @CurrentUser user: AuthUser,
         @PathVariable gameId: String,
         @RequestPart("data") data: Part,
-        @RequestPart("build", required = false) build: MultipartFile?,
+        @RequestPart("buildFile", required = false) build: MultipartFile?,
     ): GameResponse = gameUploadService.update(user, gameId, readText(data), build)
 
     /**

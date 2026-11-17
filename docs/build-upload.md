@@ -8,7 +8,7 @@
 ## 전체 흐름
 
 ```
-POST /api/v1/games  (multipart: data=JSON, build=zip)
+POST /api/v1/games  (multipart: data=JSON, buildFile=zip)
   │
   ├─ 1. 권한·입력 검사 (zip을 읽기 전에 빠르게 실패)
   ├─ 2. zip을 staging/{uploadId}/upload.zip 에 저장
@@ -144,7 +144,7 @@ GMM_SESSION_COOKIE_SECURE=false ./gradlew bootRun
 curl -i http://localhost:8080/api/v1/games \
   -H "Cookie: GMM_SESSION=<세션 값>" \
   -F 'data={"jamId":"<게임잼 ID>","title":"테스트","tagline":"","description":"","genre":"액션","iconUrl":null,"orientation":"landscape","env":{"platforms":["PC"],"inputs":["키보드"],"note":""}};type=application/json' \
-  -F 'build=@MyGame.zip'
+  -F 'buildFile=@MyGame.zip'
 
 # 응답의 buildUrl 로 확인
 curl -I "<buildUrl>/Build/<buildName>.wasm"   # Content-Type: application/wasm

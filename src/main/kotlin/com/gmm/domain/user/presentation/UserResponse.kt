@@ -10,13 +10,13 @@ data class UserResponse(
     val generation: Int?,
     val avatarUrl: String?,
     val role: UserRole,
-    /** Discord notifications are out of MVP scope. The server does not store them yet. */
+    /** Discord notifications are out of MVP scope. The server returns the frontend mock's defaults and stores nothing. */
     val discord: DiscordSettingsResponse = DiscordSettingsResponse(),
 ) {
     data class DiscordSettingsResponse(
-        val userId: String? = null,
-        val notifyUploadReview: Boolean = false,
-        val notifyResults: Boolean = false,
+        val userId: String = "",
+        val notifyUploadReview: Boolean = true,
+        val notifyResults: Boolean = true,
         val notifyFeedback: Boolean = false,
     )
 

@@ -2,10 +2,14 @@ package com.gmm.domain.auth.presentation
 
 import com.gmm.domain.auth.service.AuthService
 import com.gmm.domain.user.presentation.UserResponse
+import com.gmm.domain.user.service.UserService
+import com.gmm.global.auth.AuthUser
+import com.gmm.global.auth.CurrentUser
 import com.gmm.global.auth.SessionCookies
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -13,7 +17,15 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/auth")
-class AuthController(private val authService: AuthService, private val sessionCookies: SessionCookies) {
+class AuthController(
+    private val authService: AuthService,
+    private val userService: UserService,
+    private val sessionCookies: SessionCookies,
+) {
+    /** Guests get 401; the frontend treats it as "not signed in". */
+    @GetMapping("/me")
+    fun me(@CurrentUser user: AuthUser): UserResponse = UserResponse.from(userService.getUser(user.id))
+
     @PostMapping("/datagsm/callback")
     fun dataGsmCallback(@RequestBody request: DataGsmCallbackRequest): ResponseEntity<UserResponse> {
         val result = authService.login(request.code, request.codeVerifier, request.redirectUri)
