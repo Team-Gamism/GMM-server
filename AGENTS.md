@@ -20,7 +20,6 @@ expose a file outside `builds/`. When uncertain, stop and ask; never guess.**
 
 | Need | Go to |
 | --- | --- |
-| Local run, ports, environment variables | [`README.md`](README.md) |
 | Build upload flow, validation rules, storage layout | [`docs/build-upload.md`](docs/build-upload.md) |
 | Domains (auth, user, session, jam, game, build) | `src/main/kotlin/com/gmm/domain/<name>/` (`entity`, `repository`, `service`, `presentation`) |
 | Shared code: auth filter, config, errors, helpers | `src/main/kotlin/com/gmm/global/` |
@@ -29,7 +28,7 @@ expose a file outside `builds/`. When uncertain, stop and ask; never guess.**
 | DB schema (Flyway) | [`src/main/resources/db/migration/`](src/main/resources/db/migration/) |
 | Tests | `src/test/kotlin/com/gmm/domain/<name>/` |
 | Dependency versions | [`gradle/libs.versions.toml`](gradle/libs.versions.toml) |
-| Local MySQL and build-serving nginx | [`compose.yaml`](compose.yaml), [`deploy/nginx/builds.conf`](deploy/nginx/builds.conf) |
+| Local MySQL and build-serving nginx (API on 8080, builds on 8081) | [`compose.yaml`](compose.yaml), [`deploy/nginx/builds.conf`](deploy/nginx/builds.conf) |
 | Code style | [`.editorconfig`](.editorconfig) (ktlint, `intellij_idea`, 120 columns) |
 
 Do not load the whole repository into context. Read the domain you are changing, the
@@ -40,9 +39,9 @@ Do not load the whole repository into context. Read the domain you are changing,
 1. **Discover:** `git status`, current branch, open PRs (`gh pr list`), the issue.
 2. **Understand:** read the code path and every file it touches. A rule often lives in
    two places, e.g. `ErrorCode.kt` and the service that throws it, `application.yml` and
-   `README.md`, or the build validator and `docs/build-upload.md`. Change both.
+   `GmmProperties.kt`, or the build validator and `docs/build-upload.md`. Change both.
 3. **Plan the smallest change** that is one logical unit. If it mixes concerns, split it.
-4. **Implement** on a branch named `<type>/<short-slug>` from an up-to-date `main`.
+4. **Implement** on a branch named `<type>/<short-slug>` from an up-to-date `develop`.
 5. **Verify:**
    - `./gradlew ktlintCheck` (`./gradlew ktlintFormat` to fix)
    - `./gradlew test`
@@ -55,7 +54,7 @@ Do not load the whole repository into context. Read the domain you are changing,
 6. **Commit** as `<type>: <what changed>`, type `feat`, `fix`, `docs`, `ci`, `test`,
    `refactor` or `chore`. The PR title uses the same format.
 7. **PR:** `gh pr create` with Summary, Changes and Testing (what you ran and the result).
-8. **Checks green → merge** with squash.
+8. **Checks green → merge** into `develop` with squash. `main` receives `develop` for releases.
 
 ## Hard rules
 
@@ -88,7 +87,7 @@ Do not load the whole repository into context. Read the domain you are changing,
 - Never log or return session cookie values, OAuth codes, tokens or secrets. Sessions
   are stored as a SHA-256 hash; keep it that way.
 - Never commit secrets or a `.env` file. New config gets an env var with a safe
-  default in `application.yml` and a row in the README table.
+  default in `application.yml`.
 
 ### Errors and API
 
@@ -102,7 +101,7 @@ Do not load the whole repository into context. Read the domain you are changing,
 ### Git
 
 - One logical change = one commit = one PR. No unrelated changes in a PR.
-- Never use `--no-verify`, never force-push `main`, never merge with failing checks.
+- Never use `--no-verify`, never force-push `main` or `develop`, never merge with failing checks.
 - **Never add `Co-Authored-By` or any AI attribution trailer** to commits or PRs. Use
   the repository's configured Git identity; never change it.
 - Fixes to merged work go in a new commit and a new PR.
@@ -112,8 +111,8 @@ Do not load the whole repository into context. Read the domain you are changing,
 - Code, comments and KDoc are in English. User-facing messages and docs under
   `docs/` and `README.md` are in Korean (해요체 for docs, as the existing ones are).
   Agents talk to the user in the user's language.
-- Documentation is part of the change: update the README (env vars, ports),
-  `docs/` and comments that your change makes stale.
+- Documentation is part of the change: update `application.yml` defaults, `docs/`
+  and comments that your change makes stale.
 - Follow `.editorconfig`; ktlint enforces it.
 
 ## Decision-making
