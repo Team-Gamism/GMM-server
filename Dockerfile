@@ -1,19 +1,22 @@
 # Same base images as cowork-server (Temurin 27, Alpine 3.24), pinned by digest.
-FROM eclipse-temurin:27.0.1.0-jdk-alpine-3.24@sha256:a63e42ef2a577cdb0802b73bb6f8fa2c3b0ebf1b4f00f29eb22e7f4d83b234f7 AS builder
+FROM eclipse-temurin:27.0.1.0-jdk-alpine-3.24@sha256:a63e42ef2a577cdb0802b73bb6f8fa2c3b0ebf1b4f00f29eb22e7f4d83b234f7 AS deps
 WORKDIR /workspace
+ENV GRADLE_USER_HOME=/root/.gradle
+# Only build files here, so this layer (Gradle distribution and every dependency, plugins included)
+# stays cached until a build file changes. CI stores it in the GitHub Actions cache (mode=max).
 COPY gradlew settings.gradle.kts build.gradle.kts .editorconfig ./
 COPY gradle gradle
+RUN chmod +x gradlew && ./gradlew resolveDependencies --no-daemon -q
+
+FROM deps AS builder
 COPY src src
-RUN chmod +x gradlew
 
 # CI target: ktlint and unit tests. `docker build --target check .`
 FROM builder AS check
-RUN --mount=type=cache,id=gmm-gradle,target=/root/.gradle,sharing=locked \
-    ./gradlew build --no-daemon
+RUN ./gradlew build --no-daemon
 
 FROM builder AS package
-RUN --mount=type=cache,id=gmm-gradle,target=/root/.gradle,sharing=locked \
-    ./gradlew bootJar --no-daemon \
+RUN ./gradlew bootJar --no-daemon \
     && artifact="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && test -n "${artifact}" \
     && cp "${artifact}" /workspace/app.jar \
