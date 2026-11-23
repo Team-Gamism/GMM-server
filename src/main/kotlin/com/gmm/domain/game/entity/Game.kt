@@ -115,6 +115,18 @@ class Game(
         return previous
     }
 
+    fun approve(now: Instant = updatedAt) {
+        reviewStatus = ReviewStatus.APPROVED
+        rejectReason = null
+        updatedAt = now
+    }
+
+    fun reject(reason: String, now: Instant = updatedAt) {
+        reviewStatus = ReviewStatus.REJECTED
+        rejectReason = reason
+        updatedAt = now
+    }
+
     fun isOwnedBy(user: AuthUser): Boolean = ownerId == user.id
 
     fun canManage(user: AuthUser): Boolean = user.isAdmin || isOwnedBy(user)
