@@ -20,7 +20,9 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.verify
 import java.time.Clock
 import java.time.Instant
@@ -102,5 +104,52 @@ class GameServiceTest :
             every { gameRepository.findById("game") } returns Optional.of(game)
 
             service.update(owner, "game", details, null).buildPath shouldBe "g/old"
+        }
+
+        test("owner and admin delete a game and its build folder; others get 403 or 404") {
+            val game = game()
+            every { gameRepository.findById("game") } returns Optional.of(game)
+            every { gameRepository.delete(game) } just runs
+
+            shouldThrow<GmmException> { service.delete(other, "game") }.code shouldBe ErrorCode.GAME_NOT_FOUND
+            game.approve()
+            shouldThrow<GmmException> { service.delete(other, "game") }.code shouldBe ErrorCode.GAME_DELETE_NOT_OWNER
+
+            service.delete(owner, "game")
+            service.delete(admin, "game")
+
+            verify(exactly = 2) { gameRepository.delete(game) }
+            verify { buildStorage.deleteGame("game") }
+        }
+
+        test("only admins set the upload status") {
+            shouldThrow<GmmException> {
+                service.setUploadStatus(owner, "game", ReviewStatus.APPROVED, null)
+            }.code shouldBe
+                ErrorCode.ADMIN_ONLY
+        }
+
+        test("rejecting keeps the trimmed reason or 사유 없음; other statuses clear it") {
+            val game = game()
+            every { gameRepository.findById("game") } returns Optional.of(game)
+
+            service.setUploadStatus(admin, "game", ReviewStatus.REJECTED, "  빌드가 실행되지 않아요.  ")
+            game.reviewStatus shouldBe ReviewStatus.REJECTED
+            game.rejectReason shouldBe "빌드가 실행되지 않아요."
+            game.updatedAt shouldBe now
+
+            service.setUploadStatus(admin, "game", ReviewStatus.REJECTED, " ").rejectReason shouldBe "사유 없음"
+            service.setUploadStatus(admin, "game", ReviewStatus.APPROVED, "무시돼요").rejectReason shouldBe null
+            game.reviewStatus shouldBe ReviewStatus.APPROVED
+            service.setUploadStatus(admin, "game", ReviewStatus.PENDING, null).reviewStatus shouldBe
+                ReviewStatus.PENDING
+        }
+
+        test("rejects reasons longer than 500 characters") {
+            every { gameRepository.findById("game") } returns Optional.of(game())
+
+            shouldThrow<GmmException> {
+                service.setUploadStatus(admin, "game", ReviewStatus.REJECTED, "가".repeat(501))
+            }.code shouldBe ErrorCode.INVALID_UPLOAD_STATUS
         }
     })

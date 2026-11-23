@@ -33,6 +33,8 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     // Game
     GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없어요."),
     GAME_NOT_OWNER(HttpStatus.FORBIDDEN, "내 게임만 수정할 수 있어요."),
+    GAME_DELETE_NOT_OWNER(HttpStatus.FORBIDDEN, "내 게임만 삭제할 수 있어요."),
+    INVALID_UPLOAD_STATUS(HttpStatus.BAD_REQUEST, "업로드 확인 상태가 올바르지 않아요."),
     INVALID_GAME_INPUT(HttpStatus.BAD_REQUEST, "게임 정보가 올바르지 않아요."),
 
     // Build

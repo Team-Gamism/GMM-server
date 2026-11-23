@@ -4,6 +4,7 @@ import com.gmm.domain.build.storage.BuildStorage
 import com.gmm.domain.game.entity.Game
 import com.gmm.domain.game.entity.GameBuild
 import com.gmm.domain.game.entity.GameDetails
+import com.gmm.domain.game.entity.ReviewStatus
 import com.gmm.domain.game.repository.GameRepository
 import com.gmm.domain.jam.repository.JamRepository
 import com.gmm.global.auth.AuthUser
@@ -68,10 +69,48 @@ class GameService(
         return game
     }
 
-    private fun findManageable(user: AuthUser, gameId: String): Game {
+    /**
+     * Deletes the game. The database cascades to its reviews and awards; the build folder
+     * is deleted after commit because file deletion cannot roll back.
+     */
+    @Transactional
+    fun delete(user: AuthUser, gameId: String) {
+        val game = findManageable(user, gameId, ErrorCode.GAME_DELETE_NOT_OWNER)
+        gameRepository.delete(game)
+        afterCommit { buildStorage.deleteGame(game.id) }
+    }
+
+    /** Admin upload review. A reject reason is kept only for `rejected`; blank becomes "사유 없음". */
+    @Transactional
+    fun setUploadStatus(user: AuthUser, gameId: String, status: ReviewStatus, reason: String?): Game {
+        user.requireAdmin()
+        val game = gameRepository.findById(gameId).orElseThrow { GmmException(ErrorCode.GAME_NOT_FOUND) }
+        val now = clock.nowMillis()
+        when (status) {
+            ReviewStatus.APPROVED -> game.approve(now)
+
+            ReviewStatus.PENDING -> game.markPending(now)
+
+            ReviewStatus.REJECTED -> {
+                val trimmed = reason?.trim().orEmpty()
+                if (trimmed.length > REJECT_REASON_MAX) {
+                    throw GmmException(ErrorCode.INVALID_UPLOAD_STATUS, "반려 사유는 ${REJECT_REASON_MAX}자 이하로 입력해 주세요.")
+                }
+                game.reject(trimmed.ifEmpty { NO_REASON }, now)
+            }
+        }
+        return game
+    }
+
+    private fun findManageable(user: AuthUser, gameId: String, notOwner: ErrorCode = ErrorCode.GAME_NOT_OWNER): Game {
         val game = gameRepository.findById(gameId).orElse(null)
         if (game == null || !game.isVisibleTo(user)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
-        if (!game.canManage(user)) throw GmmException(ErrorCode.GAME_NOT_OWNER)
+        if (!game.canManage(user)) throw GmmException(notOwner)
         return game
+    }
+
+    companion object {
+        const val REJECT_REASON_MAX = 500
+        const val NO_REASON = "사유 없음"
     }
 }
