@@ -3,6 +3,7 @@ package com.gmm.domain.jam.presentation
 import com.gmm.domain.jam.service.JamService
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.auth.CurrentUser
+import io.swagger.v3.oas.annotations.tags.Tag
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Tag(name = "Jam", description = "게임잼")
 @RestController
 @RequestMapping("/jams")
 class JamController(private val jamService: JamService) {
