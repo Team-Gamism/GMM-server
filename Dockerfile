@@ -15,9 +15,10 @@ COPY src src
 FROM builder AS check
 RUN ./gradlew build --no-daemon
 
-FROM builder AS package
-RUN ./gradlew bootJar --no-daemon \
-    && artifact="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
+# `./gradlew build` in `check` already produced the boot jar, so the runtime image reuses it instead of
+# compiling again. Every image is built from code that passed ktlint and the unit tests.
+FROM check AS package
+RUN artifact="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' -print -quit)" \
     && test -n "${artifact}" \
     && cp "${artifact}" /workspace/app.jar \
     && java -Djarmode=tools -jar /workspace/app.jar extract --layers --launcher --destination /workspace/extracted
