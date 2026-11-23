@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
-@Tag(name = "Game", description = "게임 업로드·수정")
+@Tag(name = "Game", description = "게임 업로드·수정·삭제·조회")
 @RestController
 @RequestMapping("/games")
 class GameQueryController(private val gameQueryService: GameQueryService) {

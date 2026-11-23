@@ -121,6 +121,13 @@ class Game(
         updatedAt = now
     }
 
+    /** Sends the game back to the upload review queue. */
+    fun markPending(now: Instant = updatedAt) {
+        reviewStatus = ReviewStatus.PENDING
+        rejectReason = null
+        updatedAt = now
+    }
+
     fun reject(reason: String, now: Instant = updatedAt) {
         reviewStatus = ReviewStatus.REJECTED
         rejectReason = reason
