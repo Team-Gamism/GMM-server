@@ -77,3 +77,14 @@ allOpen {
     annotation("jakarta.persistence.MappedSuperclass")
     annotation("jakarta.persistence.Embeddable")
 }
+
+// Downloads every resolvable dependency (compile, test, Kotlin compiler, ktlint) so the Docker
+// build can keep them in one cached layer. See the `deps` stage in the Dockerfile.
+tasks.register("resolveDependencies") {
+    description = "Downloads all dependencies for an offline-capable build cache."
+    doLast {
+        configurations
+            .filter { it.isCanBeResolved }
+            .forEach { configuration -> runCatching { configuration.files } }
+    }
+}
