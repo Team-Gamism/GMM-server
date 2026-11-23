@@ -5,6 +5,10 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
 interface ReviewRepository : JpaRepository<Review, String> {
+    fun findAllByGameIdOrderByCreatedAtDesc(gameId: String): List<Review>
+
+    fun findByGameIdAndAuthorId(gameId: String, authorId: String): Review?
+
     @Query(
         """
         select new com.gmm.domain.review.repository.ReviewStats(
