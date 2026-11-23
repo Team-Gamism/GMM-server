@@ -2,6 +2,7 @@ package com.gmm.global.exception
 
 import com.gmm.global.config.GmmProperties
 import org.slf4j.LoggerFactory
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.HttpMediaTypeNotSupportedException
@@ -41,6 +42,13 @@ class GlobalExceptionHandler(private val properties: GmmProperties) {
     fun handleBadRequest(e: Exception): ResponseEntity<ErrorResponse> {
         log.debug("Reject malformed request: {}", e.message)
         return respond(ErrorCode.INVALID_REQUEST)
+    }
+
+    /** A unique constraint lost a race, e.g. two first reviews of one game sent at once. */
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleConflict(e: DataIntegrityViolationException): ResponseEntity<ErrorResponse> {
+        log.warn("Reject conflicting write: {}", e.mostSpecificCause.message)
+        return respond(ErrorCode.CONFLICT)
     }
 
     @ExceptionHandler(NoResourceFoundException::class)

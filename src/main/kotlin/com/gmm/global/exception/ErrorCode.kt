@@ -14,6 +14,7 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     ADMIN_ONLY(HttpStatus.FORBIDDEN, "어드민만 할 수 있어요."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "페이지를 찾을 수 없어요."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청이에요."),
+    CONFLICT(HttpStatus.CONFLICT, "요청이 겹쳤어요. 다시 시도해 주세요."),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "지원하지 않는 요청 형식이에요."),
     FILE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "파일 용량이 너무 커요."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "문제가 생겼어요. 잠시 후 다시 시도해 주세요."),
@@ -36,6 +37,12 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     GAME_DELETE_NOT_OWNER(HttpStatus.FORBIDDEN, "내 게임만 삭제할 수 있어요."),
     INVALID_UPLOAD_STATUS(HttpStatus.BAD_REQUEST, "업로드 확인 상태가 올바르지 않아요."),
     INVALID_GAME_INPUT(HttpStatus.BAD_REQUEST, "게임 정보가 올바르지 않아요."),
+
+    // Review
+    REVIEW_OWN_GAME(HttpStatus.BAD_REQUEST, "내 게임은 평가할 수 없어요."),
+    REVIEW_NOT_OPEN(HttpStatus.BAD_REQUEST, "지금은 평가 기간이 아니에요."),
+    INVALID_REVIEW_INPUT(HttpStatus.BAD_REQUEST, "모든 항목에 별점을 매겨주세요."),
+    REVIEW_NOT_AUTHOR(HttpStatus.FORBIDDEN, "내 평가만 삭제할 수 있어요."),
 
     // Build
     BUILD_REQUIRED(HttpStatus.BAD_REQUEST, "빌드 zip 파일을 첨부해 주세요."),
