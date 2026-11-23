@@ -3,7 +3,6 @@ package com.gmm.domain.user.service
 import com.gmm.domain.user.entity.User
 import com.gmm.domain.user.entity.UserRole
 import com.gmm.domain.user.repository.UserRepository
-import com.gmm.global.config.GmmProperties
 import com.gmm.global.exception.ErrorCode
 import com.gmm.global.exception.GmmException
 import com.gmm.global.support.Ids
@@ -15,7 +14,7 @@ import java.time.Clock
 @Service
 class UserService(
     private val userRepository: UserRepository,
-    private val properties: GmmProperties,
+    private val adminPolicy: AdminPolicy,
     private val clock: Clock,
 ) {
     /** Creates the user on first login, otherwise refreshes the DataGSM-owned fields. */
@@ -36,16 +35,13 @@ class UserService(
                     createdAt = now,
                 ),
             )
-        if (isConfiguredAdmin(profile.email)) user.grantAdmin(now)
+        user.assignRole(adminPolicy.roleFor(profile.email), now)
         return user
     }
 
     @Transactional(readOnly = true)
     fun getUser(userId: String): User =
         userRepository.findById(userId).orElseThrow { GmmException(ErrorCode.UNAUTHORIZED) }
-
-    private fun isConfiguredAdmin(email: String): Boolean =
-        properties.admin.emails.any { it.isNotBlank() && it.trim().equals(email, ignoreCase = true) }
 }
 
 data class DataGsmProfile(val dataGsmId: Long, val email: String, val name: String, val studentNumber: String?)
