@@ -56,6 +56,16 @@ class Jam(
 
     fun statusAt(now: Instant): JamStatus = JamStatus.of(startAt, endAt, announcedAt, now)
 
+    fun announce(now: Instant) {
+        announcedAt = now
+        updatedAt = now
+    }
+
+    fun cancelAnnouncement(now: Instant) {
+        announcedAt = null
+        updatedAt = now
+    }
+
     fun update(details: JamDetails, now: Instant) {
         name = details.name
         description = details.description

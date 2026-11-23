@@ -30,6 +30,8 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     JAM_NOT_FOUND(HttpStatus.NOT_FOUND, "게임잼을 찾을 수 없어요."),
     JAM_NOT_ONGOING(HttpStatus.BAD_REQUEST, "진행 중인 게임잼에만 업로드할 수 있어요."),
     INVALID_JAM_INPUT(HttpStatus.BAD_REQUEST, "게임잼 정보가 올바르지 않아요."),
+    JAM_NOT_FINISHED(HttpStatus.BAD_REQUEST, "게임잼이 끝난 뒤에 결과를 발표할 수 있어요."),
+    INVALID_AWARD(HttpStatus.BAD_REQUEST, "수상 정보가 올바르지 않아요."),
 
     // Game
     GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없어요."),
