@@ -1,4 +1,4 @@
-# Production stack on the school server. deploy/scripts/deploy.sh copies this file to
+# Production stack on the school server (GSM SV VM). deploy/scripts/deploy.sh copies this file to
 # $GMM_DEPLOY_DIR and runs it with IMAGE_TAG set and the server-only .env file.
 name: gmm
 
@@ -6,7 +6,14 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    # Small footprint for a 2-4 GB VM. Raise MYSQL_BUFFER_POOL when the VM has more memory.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL:-128M}
+      - --performance-schema=OFF
+      - --max-connections=50
+    mem_limit: ${MYSQL_MEM_LIMIT:-512m}
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-gmm}
       MYSQL_USER: ${MYSQL_USER:-gmm}
@@ -27,6 +34,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # The JVM sizes its heap from this limit (MaxRAMPercentage=60 in the image).
+    mem_limit: ${API_MEM_LIMIT:-768m}
     environment:
       DB_HOST: mysql
       DB_PORT: "3306"
@@ -46,19 +55,44 @@ services:
     volumes:
       - gmm-data:/data/gmm
     ports:
-      # Loopback by default: put the school's reverse proxy (HTTPS) in front of it.
+      # Loopback by default: the "front" nginx reaches the API over the compose network.
+      # Set API_BIND=0.0.0.0 only when a school HTTPS subdomain points straight at the API.
       - "${API_BIND:-127.0.0.1}:${API_PORT:-8080}:8080"
 
   builds:
     image: nginx:1.27-alpine
     restart: unless-stopped
+    mem_limit: 64m
     environment:
       GMM_FRONTEND_ORIGIN: ${GMM_FRONTEND_ORIGIN:?Set GMM_FRONTEND_ORIGIN in .env}
     volumes:
       - gmm-data:/data/gmm:ro
       - ./nginx/builds.conf.template:/etc/nginx/templates/default.conf.template:ro
     ports:
-      - "${BUILDS_BIND:-127.0.0.1}:${BUILDS_PORT:-8081}:80"
+      # 0.0.0.0: the school HTTPS proxy connects to the VM's internal IP, not to loopback.
+      - "${BUILDS_BIND:-0.0.0.0}:${BUILDS_PORT:-8081}:80"
+
+  # Frontend + /api entry point. Turn on with COMPOSE_PROFILES=front when the frontend runs on this VM.
+  front:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    profiles: [front]
+    mem_limit: 64m
+    depends_on:
+      - api
+    volumes:
+      - ${GMM_FRONT_DIR:-./front}:/usr/share/nginx/html:ro
+      - ./nginx/edge.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${FRONT_BIND:-0.0.0.0}:${FRONT_PORT:-80}:80"
+
+# GSM SV VMs reach the internet through a GRE tunnel with an MTU of 1400. Docker's default 1500
+# silently drops outgoing packets, so calls such as the DataGSM token exchange would hang.
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"
 
 volumes:
   mysql-data:
