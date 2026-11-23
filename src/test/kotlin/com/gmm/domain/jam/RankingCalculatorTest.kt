@@ -1,3 +1,4 @@
+// cache probe
 package com.gmm.domain.jam
 
 import com.gmm.domain.jam.service.RankingCalculator
