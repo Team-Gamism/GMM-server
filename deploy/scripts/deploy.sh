@@ -15,6 +15,7 @@ fi
 mkdir -p "$DIR/nginx"
 install -m 644 "$SRC/compose.prod.yaml" "$DIR/compose.prod.yaml"
 install -m 644 "$SRC/nginx/builds.conf" "$DIR/nginx/builds.conf.template"
+install -m 644 "$SRC/nginx/edge.conf" "$DIR/nginx/edge.conf"
 
 compose() {
   local tag="$1"
@@ -40,7 +41,7 @@ trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 PREVIOUS="$(cat "$DIR/.deployed-tag" 2>/dev/null || true)"
 echo "Deploy $TAG (previous: ${PREVIOUS:-none})"
 
-compose "$TAG" pull api builds mysql
+compose "$TAG" pull
 compose "$TAG" up -d --remove-orphans
 
 if wait_healthy "$TAG"; then

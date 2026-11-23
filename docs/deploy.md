@@ -63,16 +63,45 @@ main push ─▶ CD 1: GitHub 호스팅 runner
 2. Settings → Actions → General → Fork pull request workflows에서 **외부 기여자의 워크플로 실행에 승인 필요**를 켜요.
 3. 첫 배포 뒤 Packages의 `gmm-server` 이미지가 저장소에 연결됐는지 확인해요. 배포 작업은 `GITHUB_TOKEN`으로 로그인해서 받아요.
 
-### 3. 도메인과 HTTPS
+### 3. 학교 서버(GSM SV) 설정
 
-compose는 API(8080)와 빌드 서빙(8081)을 기본으로 `127.0.0.1`에만 열어요. 학교 서버의 리버스 프록시(또는 서버에 설치한 nginx·Caddy)가 HTTPS를 맡아 아래처럼 넘겨야 해요.
+GMM 서버는 GSM SV의 VM `GMM-server`(Ubuntu)에서 돌아요. 관리 화면은 <https://gsmsv.site/instances>예요.
 
-| 도메인 | 넘길 곳 | 비고 |
+**HTTPS 도메인 (HTTPS 탭, VM당 2개)**
+
+학교 프록시가 `*.https.gsmsv.site`의 HTTPS를 맡고, 지정한 VM 내부 포트로 넘겨요. 그래서 compose는 공개할 포트를 `0.0.0.0`으로 열어요. `127.0.0.1`로는 프록시가 들어오지 못해요.
+
+| 서브도메인 | 내부 포트 | compose 서비스 | 용도 |
+| --- | --- | --- | --- |
+| `gmm` | 80 | `front` | 프론트 정적 파일과 `/api` → API |
+| `gmm-games` | 8081 | `builds` | 빌드·이미지 서빙 |
+
+프론트를 다른 곳에 배포하면 `.env`에서 `COMPOSE_PROFILES`를 비우고, `gmm-api` 서브도메인을 8080에 연결해요. 이때는 `API_BIND=0.0.0.0`, `GMM_CORS_ALLOWED_ORIGINS=<프론트 주소>`도 넣어요.
+
+프론트 빌드 결과물(`dist/`)은 `GMM_FRONT_DIR`(기본 `/srv/gmm/front`)에 두면 `front` nginx가 서빙해요. 프론트 쪽 배포 방법이 정해지면 이 폴더를 채우는 방식을 맞춰요.
+
+**Docker MTU 1400 (필수)**
+
+GSM SV VM은 GRE 터널로 외부와 통신해서 실제 MTU가 1400이에요. Docker 기본값 1500으로 두면 컨테이너에서 나가는 요청이 응답 없이 실패하고, DataGSM 로그인이 안 돼요. `compose.prod.yaml`의 기본 네트워크가 MTU 1400이라 따로 할 일은 없어요. 다른 compose 파일을 쓸 때도 이 설정을 넣어요 (학교 문서: <https://gsmsv.site/docs/docker>).
+
+**메모리**
+
+| VM 등급 | 메모리 | 권장 `.env` |
 | --- | --- | --- |
-| 프론트 도메인의 `/api/` | `127.0.0.1:8080` | 프론트와 같은 도메인이면 CORS가 필요 없어요. `client_max_body_size`를 210MB 이상으로 |
-| 빌드 전용 도메인 | `127.0.0.1:8081` | **프론트와 등록 도메인이 달라야 해요** (`docs/build-upload.md`의 보안 항목) |
+| micro (지금) | 2 GB | 기본값 (`API_MEM_LIMIT=768m`, `MYSQL_MEM_LIMIT=512m`, `MYSQL_BUFFER_POOL=128M`) |
+| small 이상 | 4 GB | `API_MEM_LIMIT=1536m`, `MYSQL_MEM_LIMIT=1g`, `MYSQL_BUFFER_POOL=512M` |
 
-도메인 구성은 아직 정해지지 않았어요 (#8). 정해지면 `.env`의 `DATAGSM_REDIRECT_URIS`, `GMM_BUILD_PUBLIC_BASE_URL`, `GMM_FRONTEND_ORIGIN`을 맞춰요.
+2 GB에는 MySQL, API, nginx 2개, runner가 함께 올라가서 빠듯해요. 게임잼 기간처럼 사용자가 몰리는 때는 4 GB를 권장해요.
+
+**만료와 스냅샷**
+
+- 일반 사용자 VM은 만든 지 30일 뒤 만료되고, 만료 15일 전부터 상세 페이지의 **연장** 버튼을 쓸 수 있어요. 만료되면 서비스가 멈춰요. 프로젝트 오너의 VM은 만료가 없어서, 운영용이면 프로젝트 오너 권한을 신청하는 게 좋아요.
+- 설정 탭의 **매일 자동 스냅샷**(00:10 KST)을 켜 두면 VM 전체를 하루 단위로 되돌릴 수 있어요. 아래 DB 백업과 함께 써요.
+
+**기타**
+
+- VM 기본 포트(22, 80, 10000)는 `service.gsmsv.site`의 포트포워딩으로도 열려 있어요. 서비스 주소는 HTTPS 서브도메인을 쓰고, 이 포트로 안내하지 않아요.
+- 처음 받은 `ubuntu` 계정 비밀번호는 `passwd`로 바꿔요.
 
 ## 배포하기
 
