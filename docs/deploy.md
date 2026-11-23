@@ -26,7 +26,7 @@ main push ─▶ CD 1: GitHub 호스팅 runner
 | `Dockerfile` | `check`(빌드·테스트), `runtime`(운영 이미지) 단계 |
 | `deploy/compose.prod.yaml` | 운영 스택: MySQL, API, 빌드·이미지 서빙 nginx |
 | `deploy/scripts/deploy.sh` | 배포와 롤백 |
-| `deploy/.env.example` | 서버의 `.env` 예시 |
+| GitHub `production` environment | 운영 설정값과 비밀값. 배포할 때마다 서버의 `.env`로 써져요 (아래 "운영 설정값") |
 
 ## 왜 self-hosted runner인가요
 
@@ -44,11 +44,9 @@ main push ─▶ CD 1: GitHub 호스팅 runner
 
 1. Docker Engine과 Docker Compose 플러그인을 설치해요 (`docker compose version`이 동작해야 해요).
 2. runner를 실행할 계정을 만들고 `docker` 그룹에 넣어요. root로 runner를 실행하지 않아요.
-3. 배포 폴더를 만들고 `.env`를 채워요.
+3. 배포 폴더를 만들어요. `.env`는 배포 스크립트가 GitHub 설정값으로 매번 새로 써요(권한 600). 서버에서 직접 고치지 않아요.
    ```bash
    sudo mkdir -p /srv/gmm && sudo chown <runner 계정> /srv/gmm
-   cp deploy/.env.example /srv/gmm/.env   # 저장소의 예시를 복사해서 값을 채워요
-   chmod 600 /srv/gmm/.env
    ```
    다른 폴더를 쓰려면 저장소 변수 `GMM_DEPLOY_DIR`에 경로를 넣어요.
 4. runner를 설치해요. GitHub 저장소 → Settings → Actions → Runners → **New self-hosted runner**의 안내대로 설치하고, 등록할 때 라벨에 `gmm-prod`를 넣어요.
@@ -62,6 +60,45 @@ main push ─▶ CD 1: GitHub 호스팅 runner
 1. Settings → Environments → **production**을 만들고, Deployment branches를 `main`만 허용해요. 배포 전에 승인을 받고 싶으면 Required reviewers도 켜요.
 2. Settings → Actions → General → Fork pull request workflows에서 **외부 기여자의 워크플로 실행에 승인 필요**를 켜요.
 3. 첫 배포 뒤 Packages의 `gmm-server` 이미지가 저장소에 연결됐는지 확인해요. 배포 작업은 `GITHUB_TOKEN`으로 로그인해서 받아요.
+4. **production** environment에 아래 "운영 설정값"을 넣어요.
+
+### 운영 설정값 (GitHub `production` environment)
+
+배포 작업(`cd.yml`)이 이 값들을 `deploy.sh`에 넘기고, `deploy.sh`가 서버의 `$GMM_DEPLOY_DIR/.env`를 새로 써요. 필수 값이 비어 있으면 배포가 이름을 알려 주며 실패해요. 값에는 작은따옴표(`'`)와 줄바꿈을 쓸 수 없어요.
+
+**Secrets**
+
+| 이름 | 필수 | 설명 |
+| --- | --- | --- |
+| `MYSQL_PASSWORD` | ✅ | 앱이 쓰는 DB 계정 비밀번호 |
+| `MYSQL_ROOT_PASSWORD` | ✅ | MySQL root 비밀번호 |
+
+MySQL은 데이터가 비어 있을 때(첫 배포)만 이 값으로 계정을 만들어요. 나중에 바꾸려면 DB에서 `ALTER USER`로 먼저 바꾸고 Secret을 고쳐요. 두 값은 백업 복원에 필요하니 팀 비밀번호 관리 도구에도 적어 둬요.
+
+**Variables**
+
+| 이름 | 필수 | 현재 값 / 기본값 | 설명 |
+| --- | --- | --- | --- |
+| `DATAGSM_CLIENT_ID` | ✅ | DataGSM 클라이언트 `gmm-oauth`의 ID | |
+| `DATAGSM_REDIRECT_URIS` | ✅ | `https://gmm.https.gsmsv.site/auth/callback` | DataGSM에 등록한 주소와 같아야 해요 |
+| `GMM_BUILD_PUBLIC_BASE_URL` | ✅ | `https://gmm-games.https.gsmsv.site` | 빌드·이미지 URL의 앞부분 |
+| `GMM_FRONTEND_ORIGIN` | ✅ | `https://gmm.https.gsmsv.site` | 빌드를 iframe으로 띄울 수 있는 출처 |
+| `COMPOSE_PROFILES` | | `front` | 프론트를 이 VM에서 서빙할 때 |
+| `GMM_ADMIN_EMAILS` | | (없음) | 어드민 DataGSM 이메일, 쉼표 구분. 비우면 게임잼을 만들 수 없어요 |
+| `GMM_CORS_ALLOWED_ORIGINS` | | (없음) | 프론트가 다른 도메인일 때만 |
+| `DATAGSM_ALLOW_TEACHER` | | `false` | |
+| `GMM_SESSION_COOKIE_SECURE` | | `true` | |
+| `GMM_API_DOCS_ENABLED` | | `false` | 운영에서 Swagger를 열 때만 `true` |
+| `MYSQL_DATABASE`, `MYSQL_USER` | | `gmm`, `gmm` | |
+| `GMM_FRONT_DIR` | | `./front` (배포 폴더 기준) | 프론트 빌드 결과물 위치 |
+| `FRONT_BIND`, `FRONT_PORT` | | `0.0.0.0`, `80` | |
+| `BUILDS_BIND`, `BUILDS_PORT` | | `0.0.0.0`, `8081` | |
+| `API_BIND`, `API_PORT` | | `127.0.0.1`, `8080` | |
+| `API_MEM_LIMIT`, `MYSQL_MEM_LIMIT`, `MYSQL_BUFFER_POOL` | | `768m`, `512m`, `128M` | 아래 "메모리" 참고 |
+| `JAVA_TOOL_OPTIONS` | | (없음) | JVM 옵션 추가 |
+| `GMM_DEPLOY_DIR` | | `/srv/gmm` | 배포 폴더 |
+
+새 설정을 추가하면 `cd.yml`의 `env`, `deploy.sh`의 `REQUIRED`·`OPTIONAL`, `compose.prod.yaml`, 이 표를 함께 고쳐요.
 
 ### 3. 학교 서버(GSM SV) 설정
 
@@ -76,7 +113,7 @@ GMM 서버는 GSM SV의 VM `GMM-server`(Ubuntu)에서 돌아요. 관리 화면�
 | `gmm` | 80 | `front` | 프론트 정적 파일과 `/api` → API |
 | `gmm-games` | 8081 | `builds` | 빌드·이미지 서빙 |
 
-프론트를 다른 곳에 배포하면 `.env`에서 `COMPOSE_PROFILES`를 비우고, `gmm-api` 서브도메인을 8080에 연결해요. 이때는 `API_BIND=0.0.0.0`, `GMM_CORS_ALLOWED_ORIGINS=<프론트 주소>`도 넣어요.
+프론트를 다른 곳에 배포하면 Variable `COMPOSE_PROFILES`를 비우고, `gmm-api` 서브도메인을 8080에 연결해요. 이때는 `API_BIND=0.0.0.0`, `GMM_CORS_ALLOWED_ORIGINS=<프론트 주소>`도 넣어요.
 
 프론트 빌드 결과물(`dist/`)은 `GMM_FRONT_DIR`(기본 `/srv/gmm/front`)에 두면 `front` nginx가 서빙해요. 프론트 쪽 배포 방법이 정해지면 이 폴더를 채우는 방식을 맞춰요.
 
@@ -86,7 +123,7 @@ GSM SV VM은 GRE 터널로 외부와 통신해서 실제 MTU가 1400이에요. D
 
 **메모리**
 
-| VM 등급 | 메모리 | 권장 `.env` |
+| VM 등급 | 메모리 | 권장 Variables |
 | --- | --- | --- |
 | micro (지금) | 2 GB | 기본값 (`API_MEM_LIMIT=768m`, `MYSQL_MEM_LIMIT=512m`, `MYSQL_BUFFER_POOL=128M`) |
 | small 이상 | 4 GB | `API_MEM_LIMIT=1536m`, `MYSQL_MEM_LIMIT=1g`, `MYSQL_BUFFER_POOL=512M` |

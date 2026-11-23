@@ -70,8 +70,37 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Deploy
+        # Settings come from the `production` environment (Settings → Environments). deploy.sh
+        # writes them to $GMM_DEPLOY_DIR/.env on every run; see docs/deploy.md for the list.
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GMM_DEPLOY_DIR: ${{ vars.GMM_DEPLOY_DIR || '/srv/gmm' }}
+          # Secrets
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          # Variables
+          MYSQL_DATABASE: ${{ vars.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ vars.MYSQL_USER }}
+          DATAGSM_CLIENT_ID: ${{ vars.DATAGSM_CLIENT_ID }}
+          DATAGSM_REDIRECT_URIS: ${{ vars.DATAGSM_REDIRECT_URIS }}
+          DATAGSM_ALLOW_TEACHER: ${{ vars.DATAGSM_ALLOW_TEACHER }}
+          GMM_ADMIN_EMAILS: ${{ vars.GMM_ADMIN_EMAILS }}
+          GMM_CORS_ALLOWED_ORIGINS: ${{ vars.GMM_CORS_ALLOWED_ORIGINS }}
+          GMM_SESSION_COOKIE_SECURE: ${{ vars.GMM_SESSION_COOKIE_SECURE }}
+          GMM_API_DOCS_ENABLED: ${{ vars.GMM_API_DOCS_ENABLED }}
+          GMM_BUILD_PUBLIC_BASE_URL: ${{ vars.GMM_BUILD_PUBLIC_BASE_URL }}
+          GMM_FRONTEND_ORIGIN: ${{ vars.GMM_FRONTEND_ORIGIN }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
+          GMM_FRONT_DIR: ${{ vars.GMM_FRONT_DIR }}
+          FRONT_BIND: ${{ vars.FRONT_BIND }}
+          FRONT_PORT: ${{ vars.FRONT_PORT }}
+          BUILDS_BIND: ${{ vars.BUILDS_BIND }}
+          BUILDS_PORT: ${{ vars.BUILDS_PORT }}
+          API_BIND: ${{ vars.API_BIND }}
+          API_PORT: ${{ vars.API_PORT }}
+          API_MEM_LIMIT: ${{ vars.API_MEM_LIMIT }}
+          MYSQL_MEM_LIMIT: ${{ vars.MYSQL_MEM_LIMIT }}
+          MYSQL_BUFFER_POOL: ${{ vars.MYSQL_BUFFER_POOL }}
+          JAVA_TOOL_OPTIONS: ${{ vars.JAVA_TOOL_OPTIONS }}
         run: bash deploy/scripts/deploy.sh "${{ github.sha }}"
