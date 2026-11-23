@@ -30,6 +30,7 @@ expose a file outside `builds/` and `images/`. When uncertain, stop and ask; nev
 | Tests | `src/test/kotlin/com/gmm/domain/<name>/` |
 | Dependency versions | [`gradle/libs.versions.toml`](gradle/libs.versions.toml) |
 | Local MySQL and build-serving nginx (API on 8080, builds on 8081) | [`compose.yaml`](compose.yaml), [`deploy/nginx/builds.conf`](deploy/nginx/builds.conf) |
+| CI/CD, production stack, school server runner | [`docs/deploy.md`](docs/deploy.md), [`.github/workflows/`](.github/workflows/), [`deploy/`](deploy/) |
 | Code style | [`.editorconfig`](.editorconfig) (ktlint, `intellij_idea`, 120 columns) |
 
 Do not load the whole repository into context. Read the domain you are changing, the
