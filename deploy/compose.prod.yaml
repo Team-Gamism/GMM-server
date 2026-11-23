@@ -1,5 +1,5 @@
 # Production stack on the school server (GSM SV VM). deploy/scripts/deploy.sh copies this file to
-# $GMM_DEPLOY_DIR and runs it with IMAGE_TAG set and the server-only .env file.
+# $GMM_DEPLOY_DIR and runs it with IMAGE_TAG set and the .env file it writes from the GitHub production environment.
 name: gmm
 
 services:
@@ -17,8 +17,8 @@ services:
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-gmm}
       MYSQL_USER: ${MYSQL_USER:-gmm}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the GitHub production environment}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the GitHub production environment}
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -42,13 +42,13 @@ services:
       DB_NAME: ${MYSQL_DATABASE:-gmm}
       DB_USERNAME: ${MYSQL_USER:-gmm}
       DB_PASSWORD: ${MYSQL_PASSWORD}
-      DATAGSM_CLIENT_ID: ${DATAGSM_CLIENT_ID:?Set DATAGSM_CLIENT_ID in .env}
-      DATAGSM_REDIRECT_URIS: ${DATAGSM_REDIRECT_URIS:?Set DATAGSM_REDIRECT_URIS in .env}
+      DATAGSM_CLIENT_ID: ${DATAGSM_CLIENT_ID:?Set DATAGSM_CLIENT_ID in the GitHub production environment}
+      DATAGSM_REDIRECT_URIS: ${DATAGSM_REDIRECT_URIS:?Set DATAGSM_REDIRECT_URIS in the GitHub production environment}
       DATAGSM_ALLOW_TEACHER: ${DATAGSM_ALLOW_TEACHER:-false}
       GMM_ADMIN_EMAILS: ${GMM_ADMIN_EMAILS:-}
       GMM_CORS_ALLOWED_ORIGINS: ${GMM_CORS_ALLOWED_ORIGINS:-}
       GMM_SESSION_COOKIE_SECURE: ${GMM_SESSION_COOKIE_SECURE:-true}
-      GMM_BUILD_PUBLIC_BASE_URL: ${GMM_BUILD_PUBLIC_BASE_URL:?Set GMM_BUILD_PUBLIC_BASE_URL in .env}
+      GMM_BUILD_PUBLIC_BASE_URL: ${GMM_BUILD_PUBLIC_BASE_URL:?Set GMM_BUILD_PUBLIC_BASE_URL in the GitHub production environment}
       GMM_BUILD_ROOT_DIR: /data/gmm
       GMM_API_DOCS_ENABLED: ${GMM_API_DOCS_ENABLED:-false}
       JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
@@ -64,7 +64,7 @@ services:
     restart: unless-stopped
     mem_limit: 64m
     environment:
-      GMM_FRONTEND_ORIGIN: ${GMM_FRONTEND_ORIGIN:?Set GMM_FRONTEND_ORIGIN in .env}
+      GMM_FRONTEND_ORIGIN: ${GMM_FRONTEND_ORIGIN:?Set GMM_FRONTEND_ORIGIN in the GitHub production environment}
     volumes:
       - gmm-data:/data/gmm:ro
       - ./nginx/builds.conf.template:/etc/nginx/templates/default.conf.template:ro

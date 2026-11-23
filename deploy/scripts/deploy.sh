@@ -7,12 +7,38 @@ TAG="${1:?image tag required}"
 DIR="${GMM_DEPLOY_DIR:-/srv/gmm}"
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 
-if [[ ! -f "$DIR/.env" ]]; then
-  echo "::error::$DIR/.env is missing. Copy deploy/.env.example there and fill it in."
+# Settings passed in from the GitHub `production` environment by cd.yml.
+REQUIRED=(MYSQL_PASSWORD MYSQL_ROOT_PASSWORD DATAGSM_CLIENT_ID DATAGSM_REDIRECT_URIS GMM_BUILD_PUBLIC_BASE_URL GMM_FRONTEND_ORIGIN)
+OPTIONAL=(MYSQL_DATABASE MYSQL_USER DATAGSM_ALLOW_TEACHER GMM_ADMIN_EMAILS GMM_CORS_ALLOWED_ORIGINS
+  GMM_SESSION_COOKIE_SECURE GMM_API_DOCS_ENABLED COMPOSE_PROFILES GMM_FRONT_DIR FRONT_BIND FRONT_PORT
+  BUILDS_BIND BUILDS_PORT API_BIND API_PORT API_MEM_LIMIT MYSQL_MEM_LIMIT MYSQL_BUFFER_POOL JAVA_TOOL_OPTIONS)
+
+missing=()
+for name in "${REQUIRED[@]}"; do
+  [[ -n "${!name:-}" ]] || missing+=("$name")
+done
+if (( ${#missing[@]} )); then
+  echo "::error::Set these in GitHub → Settings → Environments → production: ${missing[*]}"
   exit 1
 fi
 
 mkdir -p "$DIR/nginx"
+
+# Rebuild .env from scratch on every deploy, readable only by the runner account.
+# Values are single-quoted so compose takes them literally.
+env_file="$(mktemp "$DIR/.env.XXXXXX")"
+chmod 600 "$env_file"
+for name in "${REQUIRED[@]}" "${OPTIONAL[@]}"; do
+  value="${!name:-}"
+  [[ -n "$value" ]] || continue
+  if [[ "$value" == *"'"* || "$value" == *$'\n'* ]]; then
+    rm -f "$env_file"
+    echo "::error::$name must not contain a single quote or a line break."
+    exit 1
+  fi
+  printf "%s='%s'\n" "$name" "$value" >> "$env_file"
+done
+mv "$env_file" "$DIR/.env"
 install -m 644 "$SRC/compose.prod.yaml" "$DIR/compose.prod.yaml"
 install -m 644 "$SRC/nginx/builds.conf" "$DIR/nginx/builds.conf.template"
 install -m 644 "$SRC/nginx/edge.conf" "$DIR/nginx/edge.conf"

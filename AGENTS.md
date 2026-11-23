@@ -89,7 +89,8 @@ Do not load the whole repository into context. Read the domain you are changing,
 - Never log or return session cookie values, OAuth codes, tokens or secrets. Sessions
   are stored as a SHA-256 hash; keep it that way.
 - Never commit secrets or a `.env` file. New config gets an env var with a safe
-  default in `application.yml`.
+  default in `application.yml`. Production values live in the GitHub `production` environment;
+  a new one also goes into `cd.yml`, `deploy.sh` and the table in `docs/deploy.md`.
 
 ### Errors and API
 
