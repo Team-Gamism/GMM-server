@@ -6,6 +6,7 @@ import com.gmm.domain.user.service.UserService
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.auth.CurrentUser
 import com.gmm.global.auth.SessionCookies
+import io.swagger.v3.oas.annotations.tags.Tag
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Tag(name = "Auth", description = "DataGSM 로그인과 세션")
 @RestController
 @RequestMapping("/auth")
 class AuthController(

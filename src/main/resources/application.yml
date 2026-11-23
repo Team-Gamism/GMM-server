@@ -24,6 +24,15 @@ spring:
       max-request-size: ${GMM_BUILD_MAX_REQUEST_SIZE:210MB}
       file-size-threshold: 1MB
 
+springdoc:
+  # Off by default so production never exposes the API docs. Set GMM_API_DOCS_ENABLED=true locally.
+  api-docs:
+    enabled: ${GMM_API_DOCS_ENABLED:false}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${GMM_API_DOCS_ENABLED:false}
+    path: /swagger-ui.html
+
 management:
   endpoints:
     web:

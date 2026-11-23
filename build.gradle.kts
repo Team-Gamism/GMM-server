@@ -55,6 +55,7 @@ dependencies {
     implementation(libs.flyway.core)
     implementation(libs.flyway.mysql)
     implementation(libs.kotlin.reflect)
+    implementation(libs.springdoc.openapi.webmvc.ui)
 
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.mockk)
