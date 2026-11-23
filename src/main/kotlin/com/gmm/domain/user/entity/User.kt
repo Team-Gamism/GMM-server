@@ -68,10 +68,12 @@ class User(
         updatedAt = now
     }
 
-    fun grantAdmin(now: Instant) {
-        if (role == UserRole.ADMIN) return
-        role = UserRole.ADMIN
+    /** Returns true when the role changed. */
+    fun assignRole(role: UserRole, now: Instant): Boolean {
+        if (this.role == role) return false
+        this.role = role
         updatedAt = now
+        return true
     }
 
     val isAdmin: Boolean get() = role == UserRole.ADMIN

@@ -3,6 +3,7 @@ package com.gmm.domain.session.service
 import com.gmm.domain.session.entity.UserSession
 import com.gmm.domain.session.repository.UserSessionRepository
 import com.gmm.domain.user.repository.UserRepository
+import com.gmm.domain.user.service.AdminPolicy
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.config.GmmProperties
 import com.gmm.global.support.nowMillis
@@ -20,6 +21,7 @@ import java.util.HexFormat
 class SessionService(
     private val sessionRepository: UserSessionRepository,
     private val userRepository: UserRepository,
+    private val adminPolicy: AdminPolicy,
     private val properties: GmmProperties,
     private val clock: Clock,
 ) {
@@ -42,12 +44,19 @@ class SessionService(
         return token
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Resolves the session and re-checks the role against the admin list on every request, so a
+     * removed admin loses access right away. It writes only when the stored role is out of date.
+     */
+    @Transactional
     fun authenticate(token: String): AuthUser? {
         if (token.isBlank() || token.length > MAX_TOKEN_LENGTH) return null
         val session = sessionRepository.findById(hash(token)).orElse(null) ?: return null
         if (session.isExpiredAt(clock.instant())) return null
         val user = userRepository.findById(session.userId).orElse(null) ?: return null
+        if (user.assignRole(adminPolicy.roleFor(user.email), clock.nowMillis())) {
+            log.info("Change role of user {} to {} from the admin list", user.id, user.role)
+        }
         return AuthUser(user.id, user.role)
     }
 

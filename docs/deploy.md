@@ -84,7 +84,7 @@ MySQL은 데이터가 비어 있을 때(첫 배포)만 이 값으로 계정을 �
 | `GMM_BUILD_PUBLIC_BASE_URL` | ✅ | `https://gmm-games.https.gsmsv.site` | 빌드·이미지 URL의 앞부분 |
 | `GMM_FRONTEND_ORIGIN` | ✅ | `https://gmm.https.gsmsv.site` | 빌드를 iframe으로 띄울 수 있는 출처 |
 | `COMPOSE_PROFILES` | | `front` | 프론트를 이 VM에서 서빙할 때 |
-| `GMM_ADMIN_EMAILS` | | (없음) | 어드민 DataGSM 이메일, 쉼표 구분. 비우면 게임잼을 만들 수 없어요 |
+| `GMM_ADMIN_EMAILS` | | (없음) | 어드민 DataGSM 이메일, 쉼표 구분. **이 목록만이 어드민 기준이에요.** 빼면 다음 배포 후 바로 일반 사용자가 돼요. 비우면 어드민이 없어서 게임잼을 만들 수 없어요 |
 | `GMM_CORS_ALLOWED_ORIGINS` | | (없음) | 프론트가 다른 도메인일 때만 |
 | `DATAGSM_ALLOW_TEACHER` | | `false` | |
 | `GMM_SESSION_COOKIE_SECURE` | | `true` | |
