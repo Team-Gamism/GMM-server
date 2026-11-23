@@ -44,6 +44,11 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     INVALID_REVIEW_INPUT(HttpStatus.BAD_REQUEST, "모든 항목에 별점을 매겨주세요."),
     REVIEW_NOT_AUTHOR(HttpStatus.FORBIDDEN, "내 평가만 삭제할 수 있어요."),
 
+    // Image
+    IMAGE_REQUIRED(HttpStatus.BAD_REQUEST, "이미지 파일을 첨부해 주세요."),
+    IMAGE_INVALID(HttpStatus.BAD_REQUEST, "JPEG, PNG, WebP 이미지만 올릴 수 있어요."),
+    IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "이미지는 5MB 이하만 올릴 수 있어요."),
+
     // Build
     BUILD_REQUIRED(HttpStatus.BAD_REQUEST, "빌드 zip 파일을 첨부해 주세요."),
     BUILD_INVALID(HttpStatus.BAD_REQUEST, "빌드 zip 파일이 올바르지 않아요."),

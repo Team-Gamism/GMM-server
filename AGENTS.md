@@ -14,13 +14,14 @@ Stack: Kotlin, Spring Boot 4.1, Java 27, MySQL 8, Spring Data JPA, Flyway. Tests
 Kotest and MockK.
 
 **An agent working here must never lose user data or uploaded builds, and never
-expose a file outside `builds/`. When uncertain, stop and ask; never guess.**
+expose a file outside `builds/` and `images/`. When uncertain, stop and ask; never guess.**
 
 ## Where things are
 
 | Need | Go to |
 | --- | --- |
 | Build upload flow, validation rules, storage layout | [`docs/build-upload.md`](docs/build-upload.md) |
+| Image upload (JPEG, PNG, WebP only, detected from file bytes) | `src/main/kotlin/com/gmm/domain/image/` |
 | Domains (auth, user, session, jam, game, build) | `src/main/kotlin/com/gmm/domain/<name>/` (`entity`, `repository`, `service`, `presentation`) |
 | Shared code: auth filter, config, errors, helpers | `src/main/kotlin/com/gmm/global/` |
 | Error codes and their user-facing messages | [`global/exception/ErrorCode.kt`](src/main/kotlin/com/gmm/global/exception/ErrorCode.kt) |
@@ -72,7 +73,7 @@ Do not load the whole repository into context. Read the domain you are changing,
   entry names, IDs, file names) may reach a path outside `builds/` or `staging/`.
   Keep the zip slip, file count and extracted size checks in
   [`docs/build-upload.md`](docs/build-upload.md#검증-규칙) intact.
-- `staging/` is never served. Only `builds/` is public.
+- `staging/` is never served. Only `builds/` and `images/` are public.
 - The build validation rules match the frontend's (`src/lib/unityZip.ts`) and the
   user guide. Changing one means updating the others; say so in the PR.
 - Upload size limits live in three places: `gmm.build.max-zip-size`, Spring

@@ -12,6 +12,7 @@ data class GmmProperties(
     val admin: Admin = Admin(),
     val datagsm: DataGsm = DataGsm(),
     val build: Build = Build(),
+    val image: Image = Image(),
 ) {
     data class Cors(val allowedOrigins: List<String> = emptyList())
 
@@ -31,6 +32,11 @@ data class GmmProperties(
         val allowTeacher: Boolean = false,
         val connectTimeout: Duration = Duration.ofSeconds(5),
         val readTimeout: Duration = Duration.ofSeconds(10),
+    )
+
+    data class Image(
+        /** Upper limit for one image. The frontend already resizes icons, covers and avatars. */
+        val maxSize: DataSize = DataSize.ofMegabytes(5),
     )
 
     data class Build(
