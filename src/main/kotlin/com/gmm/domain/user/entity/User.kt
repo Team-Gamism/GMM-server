@@ -62,6 +62,12 @@ class User(
         this.updatedAt = now
     }
 
+    /** The only field a user can change. Null resets to the default avatar. */
+    fun changeAvatar(avatarUrl: String?, now: Instant) {
+        this.avatarUrl = avatarUrl
+        updatedAt = now
+    }
+
     fun grantAdmin(now: Instant) {
         if (role == UserRole.ADMIN) return
         role = UserRole.ADMIN

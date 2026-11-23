@@ -26,6 +26,10 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     LOGIN_FAILED(HttpStatus.BAD_GATEWAY, "DataGSM 로그인에 실패했어요. 잠시 후 다시 시도해 주세요."),
     STUDENT_ONLY(HttpStatus.FORBIDDEN, "학생 계정만 로그인할 수 있어요."),
 
+    // User
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없어요."),
+    INVALID_AVATAR(HttpStatus.BAD_REQUEST, "프로필 사진 주소가 올바르지 않아요. 이미지를 다시 올려 주세요."),
+
     // Jam
     JAM_NOT_FOUND(HttpStatus.NOT_FOUND, "게임잼을 찾을 수 없어요."),
     JAM_NOT_ONGOING(HttpStatus.BAD_REQUEST, "진행 중인 게임잼에만 업로드할 수 있어요."),
