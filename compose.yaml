@@ -19,7 +19,9 @@ services:
       - "8081:80"
     volumes:
       - ./data:/data/gmm:ro
-      - ./deploy/nginx/builds.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/builds.conf:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      GMM_FRONTEND_ORIGIN: http://localhost:5173
 
 volumes:
   mysql-data:
