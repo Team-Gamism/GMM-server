@@ -61,6 +61,7 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 
 ```
 {GMM_BUILD_ROOT_DIR}/
+├── images/                       ← 공개. 업로드한 아이콘·대표 이미지·프로필 사진
 ├── builds/                       ← 공개 (nginx가 서빙)
 │   └── {gameId}/
 │       └── {uploadId}/
@@ -106,7 +107,7 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 
 | 설정 | 이유 |
 | --- | --- |
-| `/builds/`만 열고 나머지는 404 | `staging/`이 노출되지 않게 해요 |
+| `/builds/`와 `/images/`만 열고 나머지는 404 | `staging/`이 노출되지 않게 해요. `/images/`는 이미지 업로드 API(`POST /uploads/images`)가 저장한 파일이에요 |
 | `application/wasm` MIME | 없으면 WASM 스트리밍 컴파일이 안 돼서 로딩이 느려지거나 실패해요 |
 | `.js` → `text/javascript`, `.data` → `application/octet-stream` | 명세서 요구사항이에요 |
 | `gzip on` | 빌드는 압축 없이 올라와요. 전송할 때 압축해서 용량을 줄여요 |

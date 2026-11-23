@@ -54,6 +54,8 @@ gmm:
     client-id: ${DATAGSM_CLIENT_ID:}
     allowed-redirect-uris: ${DATAGSM_REDIRECT_URIS:http://localhost:5173/auth/callback}
     allow-teacher: ${DATAGSM_ALLOW_TEACHER:false}
+  image:
+    max-size: ${GMM_IMAGE_MAX_SIZE:5MB}
   build:
     root-dir: ${GMM_BUILD_ROOT_DIR:./data}
     public-base-url: ${GMM_BUILD_PUBLIC_BASE_URL:http://localhost:8081}
