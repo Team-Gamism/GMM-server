@@ -55,4 +55,23 @@ class Jam(
         protected set
 
     fun statusAt(now: Instant): JamStatus = JamStatus.of(startAt, endAt, announcedAt, now)
+
+    fun update(details: JamDetails, now: Instant) {
+        name = details.name
+        description = details.description
+        theme = details.theme
+        coverUrl = details.coverUrl
+        startAt = details.startAt
+        endAt = details.endAt
+        updatedAt = now
+    }
 }
+
+data class JamDetails(
+    val name: String,
+    val description: String,
+    val theme: String,
+    val coverUrl: String?,
+    val startAt: Instant,
+    val endAt: Instant,
+)

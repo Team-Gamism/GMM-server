@@ -7,4 +7,7 @@ import org.springframework.data.jpa.repository.Query
 interface GameRepository : JpaRepository<Game, String> {
     @Query("select g.buildPath from Game g where g.buildPath is not null")
     fun findAllBuildPaths(): List<String>
+
+    @Query("select g.id from Game g where g.jamId = :jamId")
+    fun findIdsByJamId(jamId: String): List<String>
 }

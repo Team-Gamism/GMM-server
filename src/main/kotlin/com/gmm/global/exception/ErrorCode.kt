@@ -11,6 +11,7 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않아요."),
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요해요."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없어요."),
+    ADMIN_ONLY(HttpStatus.FORBIDDEN, "어드민만 할 수 있어요."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "페이지를 찾을 수 없어요."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청이에요."),
     UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "지원하지 않는 요청 형식이에요."),
@@ -27,6 +28,7 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     // Jam
     JAM_NOT_FOUND(HttpStatus.NOT_FOUND, "게임잼을 찾을 수 없어요."),
     JAM_NOT_ONGOING(HttpStatus.BAD_REQUEST, "진행 중인 게임잼에만 업로드할 수 있어요."),
+    INVALID_JAM_INPUT(HttpStatus.BAD_REQUEST, "게임잼 정보가 올바르지 않아요."),
 
     // Game
     GAME_NOT_FOUND(HttpStatus.NOT_FOUND, "게임을 찾을 수 없어요."),
