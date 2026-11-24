@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    # Never the self-hosted runner: pull requests from forks must not run on the school server.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+
+      - name: Validate production compose
+        env:
+          IMAGE_TAG: ci
+          MYSQL_PASSWORD: ci
+          MYSQL_ROOT_PASSWORD: ci
+          DATAGSM_CLIENT_ID: ci
+          DATAGSM_REDIRECT_URIS: https://example.com/auth/callback
+          GMM_BUILD_PUBLIC_BASE_URL: https://games.example.com
+          GMM_FRONTEND_ORIGIN: https://example.com
+          COMPOSE_PROFILES: front
+        run: docker compose -f deploy/compose.prod.yaml config --quiet
+
+      - name: ktlint and unit tests
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          target: check
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Runtime image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          target: runtime
+          push: false
+          cache-from: type=gha

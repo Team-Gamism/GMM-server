@@ -1,0 +1,106 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# One deployment at a time; never cancel one halfway.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/team-gamism/gmm-server
+
+jobs:
+  image:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ktlint and unit tests
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          target: check
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Push image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
+        with:
+          context: .
+          target: runtime
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+
+  deploy:
+    name: Deploy to school server
+    needs: image
+    # Runner on the school server, registered with the `gmm-prod` label. It connects out to
+    # GitHub, so the school firewall needs no inbound port. Only this push-to-main job uses it.
+    runs-on: [self-hosted, gmm-prod]
+    environment: production
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Deploy
+        # Settings come from the `production` environment (Settings → Environments). deploy.sh
+        # writes them to $GMM_DEPLOY_DIR/.env on every run; see docs/deploy.md for the list.
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GMM_DEPLOY_DIR: ${{ vars.GMM_DEPLOY_DIR || '/srv/gmm' }}
+          # Secrets
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          # Variables
+          MYSQL_DATABASE: ${{ vars.MYSQL_DATABASE }}
+          MYSQL_USER: ${{ vars.MYSQL_USER }}
+          DATAGSM_CLIENT_ID: ${{ vars.DATAGSM_CLIENT_ID }}
+          DATAGSM_REDIRECT_URIS: ${{ vars.DATAGSM_REDIRECT_URIS }}
+          DATAGSM_ALLOW_TEACHER: ${{ vars.DATAGSM_ALLOW_TEACHER }}
+          GMM_ADMIN_EMAILS: ${{ vars.GMM_ADMIN_EMAILS }}
+          GMM_CORS_ALLOWED_ORIGINS: ${{ vars.GMM_CORS_ALLOWED_ORIGINS }}
+          GMM_SESSION_COOKIE_SECURE: ${{ vars.GMM_SESSION_COOKIE_SECURE }}
+          GMM_API_DOCS_ENABLED: ${{ vars.GMM_API_DOCS_ENABLED }}
+          GMM_BUILD_PUBLIC_BASE_URL: ${{ vars.GMM_BUILD_PUBLIC_BASE_URL }}
+          GMM_FRONTEND_ORIGIN: ${{ vars.GMM_FRONTEND_ORIGIN }}
+          COMPOSE_PROFILES: ${{ vars.COMPOSE_PROFILES }}
+          GMM_FRONT_DIR: ${{ vars.GMM_FRONT_DIR }}
+          FRONT_BIND: ${{ vars.FRONT_BIND }}
+          FRONT_PORT: ${{ vars.FRONT_PORT }}
+          BUILDS_BIND: ${{ vars.BUILDS_BIND }}
+          BUILDS_PORT: ${{ vars.BUILDS_PORT }}
+          API_BIND: ${{ vars.API_BIND }}
+          API_PORT: ${{ vars.API_PORT }}
+          API_MEM_LIMIT: ${{ vars.API_MEM_LIMIT }}
+          MYSQL_MEM_LIMIT: ${{ vars.MYSQL_MEM_LIMIT }}
+          MYSQL_BUFFER_POOL: ${{ vars.MYSQL_BUFFER_POOL }}
+          JAVA_TOOL_OPTIONS: ${{ vars.JAVA_TOOL_OPTIONS }}
+        run: bash deploy/scripts/deploy.sh "${{ github.sha }}"

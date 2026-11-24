@@ -1,0 +1,101 @@
+# Production stack on the school server (GSM SV VM). deploy/scripts/deploy.sh copies this file to
+# $GMM_DEPLOY_DIR and runs it with IMAGE_TAG set and the .env file it writes from the GitHub production environment.
+name: gmm
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    # Small footprint for a 2-4 GB VM. Raise MYSQL_BUFFER_POOL when the VM has more memory.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL:-128M}
+      - --performance-schema=OFF
+      - --max-connections=50
+    mem_limit: ${MYSQL_MEM_LIMIT:-512m}
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gmm}
+      MYSQL_USER: ${MYSQL_USER:-gmm}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the GitHub production environment}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in the GitHub production environment}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No published port: only the api container reaches MySQL.
+
+  api:
+    image: ghcr.io/team-gamism/gmm-server:${IMAGE_TAG:?IMAGE_TAG is set by deploy.sh}
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # The JVM sizes its heap from this limit (MaxRAMPercentage=60 in the image).
+    mem_limit: ${API_MEM_LIMIT:-768m}
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: ${MYSQL_DATABASE:-gmm}
+      DB_USERNAME: ${MYSQL_USER:-gmm}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DATAGSM_CLIENT_ID: ${DATAGSM_CLIENT_ID:?Set DATAGSM_CLIENT_ID in the GitHub production environment}
+      DATAGSM_REDIRECT_URIS: ${DATAGSM_REDIRECT_URIS:?Set DATAGSM_REDIRECT_URIS in the GitHub production environment}
+      DATAGSM_ALLOW_TEACHER: ${DATAGSM_ALLOW_TEACHER:-false}
+      GMM_ADMIN_EMAILS: ${GMM_ADMIN_EMAILS:-}
+      GMM_CORS_ALLOWED_ORIGINS: ${GMM_CORS_ALLOWED_ORIGINS:-}
+      # Write requests from any other browser origin (e.g. an uploaded build) are rejected.
+      GMM_FRONTEND_ORIGIN: ${GMM_FRONTEND_ORIGIN:?Set GMM_FRONTEND_ORIGIN in the GitHub production environment}
+      GMM_SESSION_COOKIE_SECURE: ${GMM_SESSION_COOKIE_SECURE:-true}
+      GMM_BUILD_PUBLIC_BASE_URL: ${GMM_BUILD_PUBLIC_BASE_URL:?Set GMM_BUILD_PUBLIC_BASE_URL in the GitHub production environment}
+      GMM_BUILD_ROOT_DIR: /data/gmm
+      GMM_API_DOCS_ENABLED: ${GMM_API_DOCS_ENABLED:-false}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:-}
+    volumes:
+      - gmm-data:/data/gmm
+    ports:
+      # Loopback by default: the "front" nginx reaches the API over the compose network.
+      # Set API_BIND=0.0.0.0 only when a school HTTPS subdomain points straight at the API.
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-8080}:8080"
+
+  builds:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      GMM_FRONTEND_ORIGIN: ${GMM_FRONTEND_ORIGIN:?Set GMM_FRONTEND_ORIGIN in the GitHub production environment}
+    volumes:
+      - gmm-data:/data/gmm:ro
+      - ./nginx/builds.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      # 0.0.0.0: the school HTTPS proxy connects to the VM's internal IP, not to loopback.
+      - "${BUILDS_BIND:-0.0.0.0}:${BUILDS_PORT:-8081}:80"
+
+  # Frontend + /api entry point. Turn on with COMPOSE_PROFILES=front when the frontend runs on this VM.
+  front:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    profiles: [front]
+    mem_limit: 64m
+    depends_on:
+      - api
+    volumes:
+      - ${GMM_FRONT_DIR:-./front}:/usr/share/nginx/html:ro
+      - ./nginx/edge.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${FRONT_BIND:-0.0.0.0}:${FRONT_PORT:-80}:80"
+
+# GSM SV VMs reach the internet through a GRE tunnel with an MTU of 1400. Docker's default 1500
+# silently drops outgoing packets, so calls such as the DataGSM token exchange would hang.
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"
+
+volumes:
+  mysql-data:
+  gmm-data:
