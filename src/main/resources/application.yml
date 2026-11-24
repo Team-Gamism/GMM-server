@@ -25,7 +25,8 @@ spring:
       file-size-threshold: 1MB
 
 springdoc:
-  # Off by default so production never exposes the API docs. Set GMM_API_DOCS_ENABLED=true locally.
+  # Off unless GMM_API_DOCS_ENABLED=true. Production turns it on, and the "front" nginx (deploy/nginx/edge.conf)
+  # exposes /swagger-ui.html and /v3/api-docs on the frontend domain.
   api-docs:
     enabled: ${GMM_API_DOCS_ENABLED:false}
     path: /v3/api-docs
