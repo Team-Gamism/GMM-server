@@ -12,6 +12,7 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "로그인이 필요해요."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없어요."),
     ADMIN_ONLY(HttpStatus.FORBIDDEN, "어드민만 할 수 있어요."),
+    CROSS_SITE_REQUEST(HttpStatus.FORBIDDEN, "GMM 화면에서 보낸 요청만 처리할 수 있어요."),
     NOT_FOUND(HttpStatus.NOT_FOUND, "페이지를 찾을 수 없어요."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "지원하지 않는 요청이에요."),
     CONFLICT(HttpStatus.CONFLICT, "요청이 겹쳤어요. 다시 시도해 주세요."),
