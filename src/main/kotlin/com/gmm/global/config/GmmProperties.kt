@@ -8,6 +8,7 @@ import java.time.Duration
 @ConfigurationProperties("gmm")
 data class GmmProperties(
     val cors: Cors = Cors(),
+    val frontend: Frontend = Frontend(),
     val session: Session = Session(),
     val admin: Admin = Admin(),
     val datagsm: DataGsm = DataGsm(),
@@ -15,6 +16,11 @@ data class GmmProperties(
     val image: Image = Image(),
 ) {
     data class Cors(val allowedOrigins: List<String> = emptyList())
+
+    data class Frontend(
+        /** Origin of the GMM frontend. Browsers may send state-changing API requests only from here or a CORS origin. */
+        val origin: String = "http://localhost:5173",
+    )
 
     data class Session(
         val cookieName: String = "GMM_SESSION",

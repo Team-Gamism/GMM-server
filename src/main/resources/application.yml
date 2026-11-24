@@ -43,6 +43,10 @@ gmm:
   cors:
     # Leave empty when the frontend and the API share one origin behind a reverse proxy.
     allowed-origins: ${GMM_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  frontend:
+    # Browsers may send POST/PUT/PATCH/DELETE to the API only from this origin or a CORS origin above.
+    # Builds are served from a sibling subdomain, so SameSite cookies alone do not stop cross-origin writes.
+    origin: ${GMM_FRONTEND_ORIGIN:http://localhost:5173}
   session:
     cookie-name: GMM_SESSION
     cookie-secure: ${GMM_SESSION_COOKIE_SECURE:true}

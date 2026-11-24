@@ -47,6 +47,8 @@ services:
       DATAGSM_ALLOW_TEACHER: ${DATAGSM_ALLOW_TEACHER:-false}
       GMM_ADMIN_EMAILS: ${GMM_ADMIN_EMAILS:-}
       GMM_CORS_ALLOWED_ORIGINS: ${GMM_CORS_ALLOWED_ORIGINS:-}
+      # Write requests from any other browser origin (e.g. an uploaded build) are rejected.
+      GMM_FRONTEND_ORIGIN: ${GMM_FRONTEND_ORIGIN:?Set GMM_FRONTEND_ORIGIN in the GitHub production environment}
       GMM_SESSION_COOKIE_SECURE: ${GMM_SESSION_COOKIE_SECURE:-true}
       GMM_BUILD_PUBLIC_BASE_URL: ${GMM_BUILD_PUBLIC_BASE_URL:?Set GMM_BUILD_PUBLIC_BASE_URL in the GitHub production environment}
       GMM_BUILD_ROOT_DIR: /data/gmm
