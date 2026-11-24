@@ -39,9 +39,15 @@ for name in "${REQUIRED[@]}" "${OPTIONAL[@]}"; do
   printf "%s='%s'\n" "$name" "$value" >> "$env_file"
 done
 mv "$env_file" "$DIR/.env"
+nginx_config_hash() {
+  cat "$DIR/nginx/builds.conf.template" "$DIR/nginx/edge.conf" 2>/dev/null | sha256sum
+}
+nginx_before="$(nginx_config_hash)"
 install -m 644 "$SRC/compose.prod.yaml" "$DIR/compose.prod.yaml"
 install -m 644 "$SRC/nginx/builds.conf" "$DIR/nginx/builds.conf.template"
 install -m 644 "$SRC/nginx/edge.conf" "$DIR/nginx/edge.conf"
+nginx_changed=false
+[[ "$(nginx_config_hash)" == "$nginx_before" ]] || nginx_changed=true
 
 compose() {
   local tag="$1"
@@ -69,6 +75,19 @@ echo "Deploy $TAG (previous: ${PREVIOUS:-none})"
 
 compose "$TAG" pull
 compose "$TAG" up -d --remove-orphans
+
+# The nginx configs are single-file bind mounts. `install` replaces the file, but a running container keeps the old
+# one and `up -d` does not recreate it for a content change, so restart the running nginx services to load the new one.
+# Only running services: naming a service of an inactive profile (e.g. front) would start it.
+if [[ "$nginx_changed" == true ]]; then
+  running="$(compose "$TAG" ps --services --status running)"
+  for service in builds front; do
+    if grep -qx "$service" <<< "$running"; then
+      echo "Restart $service for the new nginx config"
+      compose "$TAG" restart "$service"
+    fi
+  done
+fi
 
 if wait_healthy "$TAG"; then
   echo "$TAG" > "$DIR/.deployed-tag"
