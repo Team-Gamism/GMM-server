@@ -15,6 +15,7 @@ main push ─▶ CD 1: GitHub 호스팅 runner
                └─ deploy/scripts/deploy.sh {커밋 SHA}
                     ├─ compose 파일과 nginx 템플릿을 $GMM_DEPLOY_DIR로 복사
                     ├─ docker compose pull, up -d
+                    ├─ nginx 설정이 바뀌었으면 실행 중인 builds·front 재시작
                     ├─ api 컨테이너 헬스 체크 (최대 3분)
                     └─ 실패하면 직전 버전으로 롤백하고 실패로 끝남
 ```
@@ -172,7 +173,8 @@ VM에는 MySQL, API, nginx 2개, runner가 함께 올라가요. PO VM은 설정 
   IMAGE_TAG=<커밋 SHA> docker compose --env-file .env -f compose.prod.yaml up -d api
   ```
 - **DB 마이그레이션 주의:** Flyway는 새 버전이 켜질 때 바로 적용돼요. 롤백해도 스키마는 되돌아가지 않아요. 그래서 마이그레이션은 **이전 버전 코드도 그대로 동작하도록**(컬럼 추가는 nullable로, 삭제는 다음 출시에) 작성해요.
-- **로그 보기:** `docker compose --env-file .env -f compose.prod.yaml logs -f api`
+- **로그 보기:** `IMAGE_TAG=$(cat .deployed-tag) docker compose --env-file .env -f compose.prod.yaml logs -f api`. compose 파일이 `IMAGE_TAG`를 요구해서, 서버에서 compose 명령을 쓸 때는 항상 붙여요.
+- **nginx 설정:** `deploy.sh`가 `nginx/` 설정이 바뀐 배포에서만 실행 중인 `builds`·`front`를 재시작해요. 설정 파일은 파일 하나씩 bind mount해서, 컨테이너를 다시 시작해야 새 파일을 읽어요.
 
 ## 데이터와 백업
 
