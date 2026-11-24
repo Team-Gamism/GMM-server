@@ -113,6 +113,7 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 | `gzip on` | 빌드는 압축 없이 올라와요. 전송할 때 압축해서 용량을 줄여요 |
 | `Cache-Control: immutable` | 경로가 업로드마다 달라서 안전해요 |
 | `Content-Security-Policy: frame-ancestors` | GMM 프론트만 빌드를 iframe으로 띄울 수 있게 해요. 운영 도메인으로 바꿔야 해요 |
+| 빌드 `index.html`에 화면 맞춤 CSS 삽입 (`sub_filter`) | Unity 템플릿은 캔버스 크기를 고정해서(Default는 푸터도 붙여요) iframe 밖으로 넘쳐요. 캔버스를 iframe에 꽉 채우고 푸터를 숨겨요. 이 파일만 `no-cache`라서 CSS를 바꾸면 이미 올라온 빌드에도 바로 반영돼요 |
 
 ## 운영 설정
 
