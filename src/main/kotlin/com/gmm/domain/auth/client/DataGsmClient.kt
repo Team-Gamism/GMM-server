@@ -10,7 +10,6 @@ import org.springframework.http.HttpStatusCode
 import org.springframework.http.MediaType
 import org.springframework.http.client.JdkClientHttpRequestFactory
 import org.springframework.stereotype.Component
-import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
 import tools.jackson.core.JacksonException
@@ -40,22 +39,23 @@ class DataGsmClient(private val properties: GmmProperties, private val jsonMappe
             log.error("Fail DataGSM login because gmm.datagsm.client-id is not set")
             throw GmmException(ErrorCode.LOGIN_FAILED)
         }
-        val form =
-            LinkedMultiValueMap<String, String>().apply {
-                add("grant_type", "authorization_code")
-                add("code", code)
-                add("client_id", clientId)
-                add("redirect_uri", redirectUri)
-                add("code_verifier", codeVerifier)
-            }
+        // DataGSM reads only a JSON body here; a form body is rejected as "grant_type은 필수입니다".
+        val body =
+            mapOf(
+                "grant_type" to "authorization_code",
+                "code" to code,
+                "client_id" to clientId,
+                "redirect_uri" to redirectUri,
+                "code_verifier" to codeVerifier,
+            )
         val response =
             call("token") {
                 restClient
                     .post()
                     .uri(properties.datagsm.tokenUri)
-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
-                    .body(form)
+                    .body(body)
             }
         if (response.status.is2xxSuccessful) {
             return parse<DataGsmTokenResponse>("token", response.body).accessToken?.takeIf { it.isNotBlank() }
