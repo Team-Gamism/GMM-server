@@ -96,7 +96,7 @@ MySQL은 데이터가 비어 있을 때(첫 배포)만 이 값으로 계정을 �
 | `GMM_CORS_ALLOWED_ORIGINS` | | (없음) | 프론트가 다른 도메인일 때만 |
 | `DATAGSM_ALLOW_TEACHER` | | `false` | |
 | `GMM_SESSION_COOKIE_SECURE` | | `true` | |
-| `GMM_API_DOCS_ENABLED` | | `false` | 운영에서 Swagger를 열 때만 `true` |
+| `GMM_API_DOCS_ENABLED` | | `true` (기본값 `false`) | `true`면 Swagger를 <https://gmm.https.gsmsv.site/swagger-ui.html>에 공개해요. 누구나 API 명세를 볼 수 있어요 |
 | `MYSQL_DATABASE`, `MYSQL_USER` | | `gmm`, `gmm` | |
 | `GMM_FRONT_DIR` | | `./front` (배포 폴더 기준) | 프론트 빌드 결과물 위치 |
 | `FRONT_BIND`, `FRONT_PORT` | | `0.0.0.0`, `80` | |
