@@ -10,8 +10,12 @@ interface JamAwardRepository : JpaRepository<JamAward, Long> {
 
     fun findAllByGameIdIn(gameIds: Collection<String>): List<JamAward>
 
-    /** Runs immediately, so new awards with the same (jam, game) can be inserted in the same transaction. */
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    /**
+     * Runs immediately, so new awards with the same (jam, game) can be inserted in the same transaction.
+     * Does not clear the persistence context: that would detach the jam the caller changes next, and the change
+     * would never be written.
+     */
+    @Modifying(flushAutomatically = true)
     @Query("delete from JamAward a where a.jamId = :jamId")
     fun deleteAllByJamId(jamId: String): Int
 }

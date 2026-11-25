@@ -27,6 +27,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import java.time.Instant
 import java.util.Optional
 
@@ -85,7 +86,12 @@ class GameQueryServiceTest :
         )
 
         fun setUp(games: List<Game>, stats: List<ReviewStats> = emptyList()) {
-            every { gameRepository.findAll() } returns games
+            // Stands in for the query: a null argument matches all.
+            every { gameRepository.findAllByJamAndOwner(any(), any()) } answers {
+                val jamId = firstArg<String?>()
+                val ownerId = secondArg<String?>()
+                games.filter { (jamId == null || it.jamId == jamId) && (ownerId == null || it.ownerId == ownerId) }
+            }
             every { reviewRepository.findStats(any()) } returns stats
             every { userRepository.findAllById(any()) } returns
                 listOf(User("owner", 1, "o@gsm.hs.kr", "김하늘", "1101", UserRole.USER, base))
@@ -129,6 +135,7 @@ class GameQueryServiceTest :
             )
 
             ids(null, GameQuery(jamId = "jam")) shouldBe listOf("d", "c", "a")
+            verify { gameRepository.findAllByJamAndOwner("jam", null) }
             ids(null, GameQuery(genre = Genre.PUZZLE)) shouldBe listOf("c")
             ids(null, GameQuery(orientation = Orientation.PORTRAIT)) shouldBe listOf("d")
         }

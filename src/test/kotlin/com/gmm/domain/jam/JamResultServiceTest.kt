@@ -33,6 +33,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import io.mockk.verifyOrder
+import org.springframework.data.jpa.repository.Modifying
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -124,6 +125,15 @@ class JamResultServiceTest :
                 awardRepository.deleteAllByJamId("jam")
                 awardRepository.saveAll(any<List<JamAward>>())
             }
+        }
+
+        test("deleting awards keeps the jam managed, so announce still writes announcedAt") {
+            val modifying =
+                JamAwardRepository::class.java.getMethod("deleteAllByJamId", String::class.java)
+                    .getAnnotation(Modifying::class.java)
+
+            modifying.flushAutomatically shouldBe true
+            modifying.clearAutomatically shouldBe false
         }
 
         test("announce accepts an empty award list and works again after announcement") {

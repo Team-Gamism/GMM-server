@@ -91,9 +91,6 @@ class GameUploadService(
     private fun storeBuild(gameId: String, file: MultipartFile): GameBuild {
         if (file.isEmpty) throw GmmException(ErrorCode.BUILD_REQUIRED)
         val fileName = displayFileName(file.originalFilename)
-        if (!fileName.endsWith(".zip", ignoreCase = true)) {
-            throw GmmException(ErrorCode.BUILD_INVALID, ".zip 파일만 올릴 수 있어요.")
-        }
 
         val uploadId = Ids.new()
         val workspace = buildStorage.createWorkspace(uploadId)
@@ -109,16 +106,30 @@ class GameUploadService(
         }
     }
 
-    /** Keeps only the base name, because browsers may send a full client path. */
-    private fun displayFileName(original: String?): String = original
-        ?.replace('\\', '/')
-        ?.substringAfterLast('/')
-        ?.filterNot { it.isISOControl() }
-        ?.take(MAX_FILE_NAME_LENGTH)
-        ?.ifBlank { null }
-        ?: "build.zip"
-
     companion object {
+        /** In characters (code points), as the `VARCHAR(255)` column counts them. */
         private const val MAX_FILE_NAME_LENGTH = 255
+        private const val ZIP = ".zip"
+
+        /**
+         * The name stored for display. Keeps only the base name, because browsers may send a full client path.
+         * Checks the extension on the full name, then shortens a long name before the extension so it stays `.zip`.
+         */
+        internal fun displayFileName(original: String?): String {
+            val name = original
+                ?.replace('\\', '/')
+                ?.substringAfterLast('/')
+                ?.filterNot { it.isISOControl() }
+                ?.ifBlank { null }
+                ?: return "build.zip"
+            if (!name.endsWith(ZIP, ignoreCase = true)) {
+                throw GmmException(ErrorCode.BUILD_INVALID, ".zip 파일만 올릴 수 있어요.")
+            }
+            if (name.codePointCount(0, name.length) <= MAX_FILE_NAME_LENGTH) return name
+            val stem = name.dropLast(ZIP.length)
+            // Cut at a code point boundary so a surrogate pair (emoji, rare Hanja) is never split.
+            return stem.substring(0, stem.offsetByCodePoints(0, MAX_FILE_NAME_LENGTH - ZIP.length)) +
+                name.takeLast(ZIP.length)
+        }
     }
 }

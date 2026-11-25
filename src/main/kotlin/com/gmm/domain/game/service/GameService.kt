@@ -73,7 +73,10 @@ class GameService(
         if (replacesBuild) checkCanUpload(user, game.jamId)
     }
 
-    /** Updates the game. When [build] is given, the previous build folder is deleted after commit. */
+    /**
+     * Updates the game. When [build] is given, the previous build folder is deleted after commit.
+     * If another write to the game commits first, this one fails with 409 and deletes nothing (see [Game.version]).
+     */
     @Transactional
     fun update(user: AuthUser, gameId: String, details: GameDetails, build: GameBuild?): Game {
         val game = findManageable(user, gameId)
