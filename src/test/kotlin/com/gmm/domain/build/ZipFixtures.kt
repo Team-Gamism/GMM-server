@@ -16,6 +16,13 @@ object ZipFixtures {
         "${prefix}StreamingAssets/config.json" to "{}".toByteArray(),
     )
 
+    fun webBuild(prefix: String = ""): Map<String, ByteArray> = mapOf(
+        "${prefix}index.html" to "<html><script src=\"game.js\"></script></html>".toByteArray(),
+        "${prefix}game.js" to "start()".toByteArray(),
+        "${prefix}game.wasm" to ByteArray(32),
+        "${prefix}assets/game.pck" to ByteArray(16),
+    )
+
     fun write(dir: Path, entries: Map<String, ByteArray>, charset: Charset = Charsets.UTF_8): Path {
         val zip = Files.createTempFile(dir, "build", ".zip")
         ZipOutputStream(Files.newOutputStream(zip), charset).use { out ->

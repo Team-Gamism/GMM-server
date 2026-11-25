@@ -36,6 +36,17 @@ jobs:
           COMPOSE_PROFILES: front
         run: docker compose -f deploy/compose.prod.yaml config --quiet
 
+      # Same image and template mount as production, so ${GMM_FRONTEND_ORIGIN} is filled in before the test.
+      - name: Test nginx configs
+        run: |
+          docker run --rm -e GMM_FRONTEND_ORIGIN=https://example.com \
+            -v "$PWD/deploy/nginx/builds.conf:/etc/nginx/templates/default.conf.template:ro" \
+            nginx:1.27-alpine nginx -t
+          # edge.conf proxies to the compose service "api", which must resolve when nginx loads the config.
+          docker run --rm --add-host api:127.0.0.1 \
+            -v "$PWD/deploy/nginx/edge.conf:/etc/nginx/conf.d/default.conf:ro" \
+            nginx:1.27-alpine nginx -t
+
       - name: ktlint and unit tests
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
