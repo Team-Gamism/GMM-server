@@ -26,8 +26,8 @@ data class GameQuery(
 enum class GameSort { RECENT, RATING }
 
 /**
- * MVP has no pagination and few games, so filtering and search run in memory after one query.
- * Move filters into the database when the game count grows.
+ * MVP has no pagination. Jam and owner filters run in the database; visibility, genre, orientation and
+ * search run in memory on that result, because search also matches the owner name and genre label.
  */
 @Service
 class GameQueryService(private val gameRepository: GameRepository, private val gameSummaries: GameSummaries) {
@@ -36,10 +36,8 @@ class GameQueryService(private val gameRepository: GameRepository, private val g
         // Unapproved games are mixed in only on request (own games list or admin review), and only those the caller may see.
         val withUnapproved = query.ownerId != null || query.includeUnapproved
         val games =
-            gameRepository.findAll().filter { game ->
+            gameRepository.findAllByJamAndOwner(query.jamId, query.ownerId).filter { game ->
                 (game.reviewStatus == ReviewStatus.APPROVED || (withUnapproved && game.isVisibleTo(user))) &&
-                    (query.jamId == null || game.jamId == query.jamId) &&
-                    (query.ownerId == null || game.ownerId == query.ownerId) &&
                     (query.genre == null || game.genre == query.genre) &&
                     (query.orientation == null || game.orientation == query.orientation)
             }

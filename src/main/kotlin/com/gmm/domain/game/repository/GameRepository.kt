@@ -14,6 +14,12 @@ interface GameRepository : JpaRepository<Game, String> {
 
     fun countByJamIdAndOwnerId(jamId: String, ownerId: String): Long
 
+    /** Games of the jam and owner; a null argument matches all. */
+    @Query(
+        "select g from Game g where (:jamId is null or g.jamId = :jamId) and (:ownerId is null or g.ownerId = :ownerId)",
+    )
+    fun findAllByJamAndOwner(jamId: String?, ownerId: String?): List<Game>
+
     fun findAllByOwnerIdAndReviewStatusOrderByCreatedAtDesc(ownerId: String, reviewStatus: ReviewStatus): List<Game>
 
     fun findAllByJamIdAndReviewStatusOrderByCreatedAtAsc(jamId: String, reviewStatus: ReviewStatus): List<Game>
