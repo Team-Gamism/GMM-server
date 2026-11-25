@@ -76,4 +76,16 @@ class ImageServiceTest :
             storage.isStoredUrl("https://games.test/images/../builds/x/index.html") shouldBe false
             storage.isStoredUrl("https://games.test/images/a.svg") shouldBe false
         }
+        test("the size message follows the configured limit") {
+            val properties =
+                GmmProperties(
+                    build = GmmProperties.Build(rootDir = root, publicBaseUrl = "https://games.test/"),
+                    image = GmmProperties.Image(maxSize = DataSize.ofMegabytes(2)),
+                )
+            val twoMegabytes = ImageService(LocalDiskImageStorage(properties), properties)
+
+            shouldThrow<GmmException> {
+                twoMegabytes.upload(file(png + ByteArray(2 * 1024 * 1024)))
+            }.message shouldBe "이미지는 2MB 이하만 올릴 수 있어요."
+        }
     })

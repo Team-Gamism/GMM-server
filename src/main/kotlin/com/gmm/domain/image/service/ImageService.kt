@@ -13,11 +13,14 @@ import org.springframework.web.multipart.MultipartFile
  */
 @Service
 class ImageService(private val imageStorage: ImageStorage, properties: GmmProperties) {
-    private val maxBytes = properties.image.maxSize.toBytes()
+    private val maxSize = properties.image.maxSize
 
     fun upload(file: MultipartFile): String {
         if (file.isEmpty) throw GmmException(ErrorCode.IMAGE_REQUIRED)
-        if (file.size > maxBytes) throw GmmException(ErrorCode.IMAGE_TOO_LARGE)
+        if (file.size > maxSize.toBytes()) {
+            // The limit comes from GMM_IMAGE_MAX_SIZE, so the message must not hardcode it.
+            throw GmmException(ErrorCode.IMAGE_TOO_LARGE, "이미지는 ${maxSize.toMegabytes()}MB 이하만 올릴 수 있어요.")
+        }
         val bytes = file.bytes
         val extension = detectExtension(bytes) ?: throw GmmException(ErrorCode.IMAGE_INVALID)
         return imageStorage.store(bytes, extension)
