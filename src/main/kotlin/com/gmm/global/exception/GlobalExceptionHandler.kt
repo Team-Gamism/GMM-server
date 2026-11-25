@@ -3,6 +3,7 @@ package com.gmm.global.exception
 import com.gmm.global.config.GmmProperties
 import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.HttpMediaTypeNotSupportedException
@@ -52,6 +53,13 @@ class GlobalExceptionHandler(private val properties: GmmProperties) {
     @ExceptionHandler(DataIntegrityViolationException::class)
     fun handleConflict(e: DataIntegrityViolationException): ResponseEntity<ErrorResponse> {
         log.warn("Reject conflicting write: {}", e.mostSpecificCause.message)
+        return respond(ErrorCode.CONFLICT)
+    }
+
+    /** The row changed or was deleted by another request in the meantime, e.g. a game edited while it is deleted. */
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleStaleWrite(e: OptimisticLockingFailureException): ResponseEntity<ErrorResponse> {
+        log.warn("Reject stale write: {}", e.message)
         return respond(ErrorCode.CONFLICT)
     }
 
