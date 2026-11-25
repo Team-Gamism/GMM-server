@@ -10,7 +10,7 @@ class GameUploadForm(
     @field:Schema(
         type = "string",
         format = "binary",
-        description = "Unity WebGL 빌드 zip. 생성할 때 필수, 수정할 때 빼면 기존 빌드를 유지해요.",
+        description = "게임 빌드 zip(Unity WebGL 또는 HTML5·WebAssembly 웹 빌드). 생성할 때 필수, 수정할 때 빼면 기존 빌드를 유지해요.",
     )
     val buildFile: String?,
 )

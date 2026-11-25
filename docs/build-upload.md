@@ -1,7 +1,8 @@
-# Unity WebGL 빌드 업로드와 서빙
+# 게임 빌드 업로드와 서빙
 
-참가자가 올린 Unity WebGL 빌드 zip을 서버가 받아서 검증하고, 압축을 풀어 저장한 뒤 별도 도메인에서 서빙하는 방식을 설명해요.
+참가자가 올린 웹 게임 빌드 zip을 서버가 받아서 검증하고, 압축을 풀어 저장한 뒤 별도 도메인에서 서빙하는 방식을 설명해요.
 
+- Unity WebGL 빌드를 권장하지만, Godot 같은 다른 엔진이나 직접 만든 HTML5·WebAssembly 빌드(웹 빌드)도 받아요.
 - DB에는 경로와 메타데이터만 저장해요.
 - 파일은 디스크에 풀어 두고, Spring이 아니라 nginx가 서빙해요.
 
@@ -15,7 +16,7 @@ POST /api/v1/games  (multipart: data=JSON, buildFile=zip)
   ├─ 3. 압축을 풀기 전에 목록만 읽어 검증
   ├─ 4. staging/{uploadId}/build/ 에 압축 해제 (실제 바이트를 세면서)
   ├─ 5. builds/{gameId}/{uploadId}/ 로 원자적 이동 (공개)
-  ├─ 6. DB 커밋 (buildPath, buildName, reviewStatus=pending)
+  ├─ 6. DB 커밋 (buildPath, buildName, buildFileName, reviewStatus=pending)
   │     └─ 실패하면 5에서 옮긴 폴더를 지움
   ├─ 7. 커밋 후 이전 빌드 폴더 삭제 (빌드 교체일 때)
   └─ 8. staging/{uploadId}/ 삭제 (성공·실패 모두)
@@ -36,32 +37,40 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 | --- | --- |
 | 순서 조정 (트랜잭션 밖) | `domain/game/service/GameUploadService.kt` |
 | DB 저장, 이전 빌드 삭제 예약 | `domain/game/service/GameService.kt` |
-| zip 검증과 압축 해제 | `domain/build/service/UnityBuildProcessor.kt` |
+| zip 검증과 압축 해제 | `domain/build/service/BuildProcessor.kt` |
 | 디스크 저장 | `domain/build/storage/LocalDiskBuildStorage.kt` |
 | 남은 폴더 정리 | `domain/build/service/BuildCleanupJob.kt` |
 | nginx 설정 | `deploy/nginx/builds.conf` |
 
 ## 검증 규칙
 
-프론트 업로드 화면의 자동 검사(`src/lib/unityZip.ts`)와 사용자 가이드(`/guide`)와 같은 규칙이에요. 한쪽을 바꾸면 다른 쪽도 함께 바꿔 주세요.
+프론트 업로드 화면의 자동 검사(`src/lib/buildZip.ts`)와 사용자 가이드(`/guide`)와 같은 규칙이에요. 한쪽을 바꾸면 다른 쪽도 함께 바꿔 주세요.
+
+빌드 종류는 업로더가 고르지 않고 zip 내용으로 판별해요. 아래 중 하나면 Unity 빌드, 아니면 웹 빌드예요.
+
+- `Build/` 아래에 `.loader.js`, `.framework.js`(`.gz`·`.br`·`.unityweb` 압축본 포함), `.unityweb` 파일이 있어요.
+- 최상위 `index.html`에 `createUnityInstance` 또는 `UnityLoader`가 있어요.
 
 | # | 규칙 | 실패 응답 |
 | --- | --- | --- |
 | 1 | 파일명이 `.zip`이고 zip으로 열려야 해요 | 400 `BUILD_INVALID` |
-| 2 | 최상위에 `index.html`과 `Build/`가 있어야 해요. 폴더째 압축한 zip은 따로 안내해요 | 400 `BUILD_INVALID` |
-| 3 | `Build/{name}.loader.js`, `.data`, `.framework.js`, `.wasm`이 같은 `{name}`으로 하나만 있어야 해요. 이 `{name}`이 `buildName`이에요 | 400 `BUILD_INVALID` |
-| 4 | `Build/` 안에 `.gz`, `.br`, `.unityweb`(압축 빌드)가 있으면 거부해요 | 400 `BUILD_INVALID` |
+| 2 | 최상위에 `index.html`이 있어야 해요. 폴더째 압축한 zip은 따로 안내해요 | 400 `BUILD_INVALID` |
+| 3 | Unity: `Build/{name}.loader.js`, `.data`, `.framework.js`, `.wasm`이 같은 `{name}`으로 하나만 있어야 해요. 이 `{name}`이 `buildName`이에요 | 400 `BUILD_INVALID` |
+| 4 | Unity: `Build/` 안에 `.gz`, `.br`, `.unityweb`(압축 빌드)가 있으면 거부해요 | 400 `BUILD_INVALID` |
+| 4-1 | 웹: `index.html` 외에 필수 파일은 없어요. zip 어디든 `.gz`, `.br`, `.unityweb`이 있으면 거부해요 | 400 `BUILD_INVALID` |
 | 5 | `__MACOSX/`와 `.`으로 시작하는 파일·폴더는 무시해요 | – |
 | 6 | `..`, 절대경로, 드라이브 문자(`C:`)가 들어간 경로(zip slip)는 거부해요 | 400 `BUILD_INVALID` |
 | 7 | 파일 수가 `GMM_BUILD_MAX_FILE_COUNT`를 넘으면 거부해요 | 400 `BUILD_INVALID` |
 | 8 | 압축 해제 총량이 `GMM_BUILD_MAX_EXTRACTED_SIZE`를 넘으면 거부해요 | 413 `BUILD_TOO_LARGE` |
 | 9 | zip 파일 자체가 `GMM_BUILD_MAX_ZIP_SIZE`를 넘으면 거부해요 | 413 `FILE_TOO_LARGE` |
 
-참고할 점이 세 가지 있어요.
+참고할 점이 다섯 가지 있어요.
 
 - **zip 폭탄 대비:** zip 헤더에 적힌 압축 해제 크기는 조작할 수 있어요. 그래서 총량 상한(8번)은 실제로 쓴 바이트를 세면서 검사해요. 헤더 크기로는 1차로 빨리 거르는 데만 써요.
 - **한글 파일명:** 한글 Windows에서 만든 zip은 파일명이 UTF-8 표시 없이 CP949로 저장돼 있는 경우가 많아요. 그래서 UTF-8로 먼저 열어 보고, 실패하면 MS949로 다시 열어요.
-- **압축 빌드 검사 범위:** `Build/` 안만 봐요. `StreamingAssets/`에 게임이 직접 쓰는 `.gz` 파일이 있을 수 있어서예요. 프론트 검사 범위와 같은지는 #8에서 확인해요.
+- **압축 빌드 검사 범위:** Unity 빌드는 `Build/` 안만 봐요. `StreamingAssets/`에 게임이 직접 쓰는 `.gz` 파일이 있을 수 있어서예요. 웹 빌드는 서버가 `Content-Encoding` 없이 그대로 서빙하니 zip 전체를 봐요.
+- **응답 필드:** `buildName`은 Unity 빌드면 `{name}`, 웹 빌드면 `null`이에요. 프론트는 이 값으로 빌드 종류를 표시해요. `buildFileName`은 두 종류 모두 채워요.
+- **심볼릭 링크:** 압축을 풀 때 모든 항목을 일반 파일로 써요. 그래서 zip 안의 심볼릭 링크는 링크로 동작하지 않고, `builds/` 밖을 가리킬 수 없어요. 멀티스레드 WASM과 `/`로 시작하는 절대 경로는 프론트가 경고만 하고 서버는 막지 않아요.
 
 ## 저장 구조
 
@@ -72,8 +81,8 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 │   └── {gameId}/
 │       └── {uploadId}/
 │           ├── index.html
-│           ├── Build/{buildName}.loader.js, .data, .framework.js, .wasm
-│           └── StreamingAssets/...
+│           ├── Build/{buildName}.loader.js, .data, .framework.js, .wasm   ← Unity 빌드
+│           └── StreamingAssets/...                                       ← 웹 빌드는 zip 구조 그대로
 └── staging/                      ← 비공개 작업 공간 (절대 서빙하지 않음)
     └── {uploadId}/
 ```
@@ -103,11 +112,12 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 
 ## 서빙: 별도 도메인과 iframe
 
-업로드된 `loader.js`는 사용자가 만든 스크립트예요. GMM 페이지에서 직접 실행하면 GMM 사이트 권한으로 돌아가요. 그래서 로그인한 사용자의 쿠키로 API를 호출할 수 있어요. 이를 막는 방법은 이래요.
+업로드된 빌드의 스크립트(Unity `loader.js`, 웹 빌드의 JS·WASM)는 사용자가 만든 코드예요. GMM 페이지에서 직접 실행하면 GMM 사이트 권한으로 돌아가요. 그래서 로그인한 사용자의 쿠키로 API를 호출할 수 있어요. 이를 막는 방법은 이래요.
 
 - **서버:** 빌드를 GMM 프론트·API와 **다른 사이트**(예: `games.<별도 도메인>`)에서 서빙해요. 서브도메인이 같은 사이트로 취급되는 구성(예: `gmm.example.com`과 `games.example.com`)은 피해요.
 - **프론트:** `<iframe src="{buildUrl}/index.html" sandbox="allow-scripts allow-same-origin allow-pointer-lock" allowfullscreen>`로 띄워요.
 - **`allow-same-origin`:** 빌드가 자기 도메인에서 `.data`·`.wasm`을 불러오고 IndexedDB 캐시를 쓰는 데 필요해요. 빌드 도메인이 GMM과 다르니 이 권한을 줘도 GMM의 쿠키·API에는 닿지 않아요.
+- **게임끼리 저장소 공유:** 모든 게임이 같은 빌드 도메인이라 localStorage·IndexedDB를 서로 같이 써요. 지금은 가이드에서 키 이름에 게임 이름을 붙이라고 안내해요.
 
 `deploy/nginx/builds.conf`는 아래를 설정해요.
 
@@ -115,11 +125,12 @@ nginx (빌드 전용 도메인) ── builds/ 를 정적 서빙
 | --- | --- |
 | `/builds/`와 `/images/`만 열고 나머지는 404 | `staging/`이 노출되지 않게 해요. `/images/`는 이미지 업로드 API(`POST /uploads/images`)가 저장한 파일이에요 |
 | `application/wasm` MIME | 없으면 WASM 스트리밍 컴파일이 안 돼서 로딩이 느려지거나 실패해요 |
-| `.js` → `text/javascript`, `.data` → `application/octet-stream` | 명세서 요구사항이에요 |
+| `.js`·`.mjs` → `text/javascript`, `.wav`·`.ttf` 추가, 모르는 확장자(`.data`, Godot `.pck` 등) → `application/octet-stream` | 나머지(`.json`, `.css`, 이미지, `.ogg`·`.mp3`, `.woff2`)는 nginx 기본 `mime.types`를 써요 |
+| COOP/COEP 헤더 없음 | 멀티스레드 WASM은 지원하지 않기로 했어요 |
 | `gzip on` | 빌드는 압축 없이 올라와요. 전송할 때 압축해서 용량을 줄여요 |
 | 성공 응답(200·206·304)만 `Cache-Control: immutable`, 오류 응답은 `no-store` | 경로가 업로드마다 달라서 영구 캐시해도 안전해요. 404는 캐시하지 않아서, 아직 없던 파일이 나중에 생겨도 바로 보여요 |
 | `Content-Security-Policy: frame-ancestors` | GMM 프론트만 빌드를 iframe으로 띄울 수 있게 해요. 운영 도메인으로 바꿔야 해요 |
-| 빌드 `index.html`에 화면 맞춤 CSS 삽입 (`sub_filter`) | Unity 템플릿은 캔버스 크기를 고정해서(Default는 푸터도 붙여요) iframe 밖으로 넘쳐요. 캔버스를 iframe에 꽉 채우고 푸터를 숨겨요. 이 파일만 `no-cache`라서 CSS를 바꾸면 이미 올라온 빌드에도 바로 반영돼요 |
+| 빌드 `index.html`에 화면 맞춤 CSS 삽입 (`sub_filter`) | Unity 템플릿은 캔버스 크기를 고정해서(Default는 푸터도 붙여요) iframe 밖으로 넘쳐요. 캔버스를 iframe에 꽉 채우고 푸터를 숨겨요. `#unity-canvas`가 있는 페이지에만 적용돼서 웹 빌드의 레이아웃·스크롤은 그대로예요. 이 파일만 `no-cache`라서 CSS를 바꾸면 이미 올라온 빌드에도 바로 반영돼요 |
 
 ## 운영 설정
 

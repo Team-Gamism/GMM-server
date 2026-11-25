@@ -75,7 +75,7 @@ Do not load the whole repository into context. Read the domain you are changing,
   Keep the zip slip, file count and extracted size checks in
   [`docs/build-upload.md`](docs/build-upload.md#검증-규칙) intact.
 - `staging/` is never served. Only `builds/` and `images/` are public.
-- The build validation rules match the frontend's (`src/lib/unityZip.ts`) and the
+- The build validation rules match the frontend's (`src/lib/buildZip.ts`) and the
   user guide. Changing one means updating the others; say so in the PR.
 - Upload size limits live in three places: `gmm.build.max-zip-size`, Spring
   `multipart.max-file-size` and nginx `client_max_body_size`. Change them together.

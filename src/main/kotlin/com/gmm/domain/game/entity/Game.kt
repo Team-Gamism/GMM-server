@@ -165,4 +165,4 @@ data class GameDetails(
     val note: String,
 )
 
-data class GameBuild(val path: String, val name: String, val fileName: String)
+data class GameBuild(val path: String, val name: String?, val fileName: String)
