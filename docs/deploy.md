@@ -6,6 +6,7 @@ GMM 서버는 학교 서버 한 대에서 Docker Compose로 돌아가요. `main`
 
 ```
 PR (develop·main 대상) ─▶ CI: GitHub 호스팅 runner
+                            ├─ nginx 설정 검사 (nginx -t, 운영과 같은 이미지)
                             ├─ Docker 안에서 ./gradlew build (ktlint, 단위 테스트)
                             └─ 운영 이미지 빌드 확인
 
