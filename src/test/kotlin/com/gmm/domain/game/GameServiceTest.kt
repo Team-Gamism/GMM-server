@@ -24,6 +24,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import io.mockk.verifyOrder
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -62,6 +63,36 @@ class GameServiceTest :
 
             shouldThrow<GmmException> { service.checkCanUpload(owner, "jam") }.code shouldBe ErrorCode.JAM_NOT_ONGOING
             service.checkCanUpload(admin, "jam")
+        }
+
+        test("participants create one game per jam; admins have no limit") {
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"))
+            every { gameRepository.countByJamIdAndOwnerId("jam", owner.id) } returns 0
+            every { gameRepository.countByJamIdAndOwnerId("jam", admin.id) } returns 3
+            service.checkCanCreate(owner, "jam")
+            service.checkCanCreate(admin, "jam")
+
+            every { gameRepository.countByJamIdAndOwnerId("jam", owner.id) } returns 1
+            shouldThrow<GmmException> { service.checkCanCreate(owner, "jam") }.code shouldBe
+                ErrorCode.GAME_LIMIT_REACHED
+        }
+
+        test("create locks the jam and checks the limit again before saving") {
+            val ongoing = jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z")
+            every { jamRepository.findForUpdate("jam") } returns ongoing
+            every { jamRepository.findById("jam") } returns Optional.of(ongoing)
+            // Another upload by the same user committed while this build was processed.
+            every { gameRepository.countByJamIdAndOwnerId("jam", owner.id) } returns 1
+
+            shouldThrow<GmmException> {
+                service.create("new", owner, "jam", details, GameBuild("new/b", "B", "b.zip"))
+            }.code shouldBe ErrorCode.GAME_LIMIT_REACHED
+            verifyOrder {
+                jamRepository.findForUpdate("jam")
+                gameRepository.countByJamIdAndOwnerId("jam", owner.id)
+            }
+            verify(exactly = 0) { gameRepository.save(any()) }
         }
 
         test("rejects a missing jam with 400 so the upload form stays") {

@@ -23,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper
  * and must not hold a database transaction. The order is fixed so a failure never leaves a game row
  * that points to a missing folder:
  *
- * 1. Check permissions (fails fast before reading the zip).
+ * 1. Check permissions and the game limit (fails fast before reading the zip).
  * 2. Validate and extract the zip in a private workspace.
  * 3. Move the build to its public folder.
  * 4. Commit the database row. On failure, delete the new folder.
@@ -50,7 +50,7 @@ class GameUploadService(
         val request = parse(data)
         val jamId = request.requireJamId()
         val details = request.toDetails(imageStorage::isStoredUrl)
-        gameService.checkCanUpload(user, jamId)
+        gameService.checkCanCreate(user, jamId)
 
         val gameId = Ids.new()
         val build = storeBuild(gameId, file)
