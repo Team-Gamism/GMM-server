@@ -15,6 +15,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -60,15 +61,15 @@ class AdminRoleTest :
             every { sessions.findById(any()) } returns
                 Optional.of(UserSession("hash", "u1", now, now.plusSeconds(3600)))
             every { users.findById("u1") } returns Optional.of(admin)
+            every { users.updateRole(any(), any(), any()) } returns 1
 
             fun service(vararg emails: String) =
                 SessionService(sessions, users, policy(*emails), GmmProperties(), clock)
 
             service("a@gsm.hs.kr").authenticate("token")!!.role shouldBe UserRole.ADMIN
-            admin.updatedAt shouldBe now.minusSeconds(3600)
+            verify(exactly = 0) { users.updateRole(any(), any(), any()) }
 
             service().authenticate("token")!!.role shouldBe UserRole.USER
-            admin.role shouldBe UserRole.USER
-            admin.updatedAt shouldBe now
+            verify(exactly = 1) { users.updateRole("u1", UserRole.USER, now) }
         }
     })
