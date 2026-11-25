@@ -29,10 +29,14 @@ class JamResultService(
     private val gameSummaries: GameSummaries,
     private val clock: Clock,
 ) {
-    /** Approved games of the jam with overall and per-criterion ranks, sorted by overall rank. */
+    /**
+     * Approved games of the jam with overall and per-criterion ranks, sorted by overall rank.
+     * Until the results are announced only admins see it, so scores do not leak while judging.
+     */
     @Transactional(readOnly = true)
-    fun ranking(jamId: String): List<RankingEntryResponse> {
-        find(jamId)
+    fun ranking(user: AuthUser?, jamId: String): List<RankingEntryResponse> {
+        val jam = find(jamId)
+        if (jam.announcedAt == null && user?.isAdmin != true) throw GmmException(ErrorCode.RESULTS_NOT_ANNOUNCED)
         val games = gameRepository.findAllByJamIdAndReviewStatusOrderByCreatedAtAsc(jamId, ReviewStatus.APPROVED)
         val stats = gameSummaries.stats(games.map { it.id })
         val summaries = gameSummaries.summarize(games, stats)

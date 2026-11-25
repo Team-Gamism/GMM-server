@@ -113,10 +113,19 @@ class ProfileServiceTest :
             service.changeAvatar(me, null).avatarUrl shouldBe null
         }
 
-        test("avatar URL must be http(s); blank means none") {
-            AvatarRequest("  ").normalized() shouldBe null
-            AvatarRequest(null).normalized() shouldBe null
-            shouldThrow<GmmException> { AvatarRequest("data:image/jpeg;base64,AAAA").normalized() }.code shouldBe
+        test("avatar URL must come from the image upload API; blank means none") {
+            val uploaded: (String) -> Boolean = { it.startsWith("https://games.test/images/") }
+            AvatarRequest(" https://games.test/images/a.jpg ").normalized(uploaded) shouldBe
+                "https://games.test/images/a.jpg"
+            shouldThrow<GmmException> {
+                AvatarRequest("https://attacker.example/t.png").normalized(uploaded)
+            }.code shouldBe
+                ErrorCode.INVALID_AVATAR
+            AvatarRequest("  ").normalized(uploaded) shouldBe null
+            AvatarRequest(null).normalized(uploaded) shouldBe null
+            shouldThrow<GmmException> {
+                AvatarRequest("data:image/jpeg;base64,AAAA").normalized(uploaded)
+            }.code shouldBe
                 ErrorCode.INVALID_AVATAR
         }
     })

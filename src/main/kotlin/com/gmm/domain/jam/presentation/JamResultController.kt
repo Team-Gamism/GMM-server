@@ -19,10 +19,14 @@ import org.springframework.web.bind.annotation.RestController
 class JamResultController(private val jamResultService: JamResultService) {
     @Operation(
         summary = "순위",
-        description = "확인 완료된 제출작만 넣어요. 동점은 같은 순위(1, 2, 2, 4)이고, 평가가 없는 게임은 맨 뒤예요.",
+        description = "확인 완료된 제출작만 넣어요. 동점은 같은 순위(1, 2, 2, 4)이고, 평가가 없는 게임은 맨 뒤예요. " +
+            "결과 발표 전에는 어드민만 볼 수 있고, 그 외에는 403 RESULTS_NOT_ANNOUNCED예요.",
     )
     @GetMapping("/ranking")
-    fun ranking(@PathVariable jamId: String): List<RankingEntryResponse> = jamResultService.ranking(jamId)
+    fun ranking(
+        @CurrentUser(required = false) user: AuthUser?,
+        @PathVariable jamId: String,
+    ): List<RankingEntryResponse> = jamResultService.ranking(user, jamId)
 
     @Operation(summary = "결과 발표 (어드민)", description = "게임잼이 끝난 뒤(심사 중·발표됨)에만 할 수 있어요. 다시 발표하면 수상 목록을 덮어써요.")
     @PutMapping("/results")

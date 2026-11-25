@@ -36,10 +36,21 @@ class GameService(
         }
     }
 
+    /** [checkCanUpload] plus the limit of one game per participant and jam. Admins have no limit. */
+    @Transactional(readOnly = true)
+    fun checkCanCreate(user: AuthUser, jamId: String) {
+        checkCanUpload(user, jamId)
+        if (!user.isAdmin && gameRepository.countByJamIdAndOwnerId(jamId, user.id) >= MAX_GAMES_PER_JAM) {
+            throw GmmException(ErrorCode.GAME_LIMIT_REACHED)
+        }
+    }
+
     @Transactional
     fun create(gameId: String, user: AuthUser, jamId: String, details: GameDetails, build: GameBuild): Game {
-        // Check again: the jam can end or be deleted while the build is processed.
-        checkCanUpload(user, jamId)
+        // Lock the jam row so two uploads sent at once cannot both pass the limit.
+        jamRepository.findForUpdate(jamId)
+        // Check again: the jam can end or be deleted, or another upload can commit, while the build is processed.
+        checkCanCreate(user, jamId)
         return gameRepository.save(
             Game(
                 id = gameId,
@@ -52,15 +63,22 @@ class GameService(
         )
     }
 
+    /**
+     * Owners and admins edit the details at any time. Like uploads, only an ongoing jam takes a new build from
+     * participants, so the build that was judged cannot be swapped afterwards.
+     */
     @Transactional(readOnly = true)
-    fun checkCanUpdate(user: AuthUser, gameId: String) {
-        findManageable(user, gameId)
+    fun checkCanUpdate(user: AuthUser, gameId: String, replacesBuild: Boolean) {
+        val game = findManageable(user, gameId)
+        if (replacesBuild) checkCanUpload(user, game.jamId)
     }
 
     /** Updates the game. When [build] is given, the previous build folder is deleted after commit. */
     @Transactional
     fun update(user: AuthUser, gameId: String, details: GameDetails, build: GameBuild?): Game {
         val game = findManageable(user, gameId)
+        // Check again: the jam can end while the build is processed.
+        if (build != null) checkCanUpload(user, game.jamId)
         val now = clock.nowMillis()
         game.updateDetails(details, now)
         if (build != null) {
@@ -111,6 +129,7 @@ class GameService(
 
     companion object {
         const val REJECT_REASON_MAX = 500
+        const val MAX_GAMES_PER_JAM = 1
         const val NO_REASON = "사유 없음"
     }
 }

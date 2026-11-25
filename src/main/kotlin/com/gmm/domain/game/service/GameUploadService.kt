@@ -6,6 +6,7 @@ import com.gmm.domain.build.storage.BuildStorage
 import com.gmm.domain.game.entity.GameBuild
 import com.gmm.domain.game.presentation.GameRequest
 import com.gmm.domain.game.presentation.GameResponse
+import com.gmm.domain.image.storage.ImageStorage
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.config.GmmProperties
 import com.gmm.global.exception.ErrorCode
@@ -22,7 +23,7 @@ import tools.jackson.databind.json.JsonMapper
  * and must not hold a database transaction. The order is fixed so a failure never leaves a game row
  * that points to a missing folder:
  *
- * 1. Check permissions (fails fast before reading the zip).
+ * 1. Check permissions and the game limit (fails fast before reading the zip).
  * 2. Validate and extract the zip in a private workspace.
  * 3. Move the build to its public folder.
  * 4. Commit the database row. On failure, delete the new folder.
@@ -33,6 +34,7 @@ class GameUploadService(
     private val gameService: GameService,
     private val buildStorage: BuildStorage,
     private val jsonMapper: JsonMapper,
+    private val imageStorage: ImageStorage,
     properties: GmmProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -47,8 +49,8 @@ class GameUploadService(
     fun create(user: AuthUser, data: String, file: MultipartFile): GameResponse {
         val request = parse(data)
         val jamId = request.requireJamId()
-        val details = request.toDetails()
-        gameService.checkCanUpload(user, jamId)
+        val details = request.toDetails(imageStorage::isStoredUrl)
+        gameService.checkCanCreate(user, jamId)
 
         val gameId = Ids.new()
         val build = storeBuild(gameId, file)
@@ -65,8 +67,8 @@ class GameUploadService(
 
     /** `jamId` in [data] is ignored: a game cannot move to another jam. */
     fun update(user: AuthUser, gameId: String, data: String, file: MultipartFile?): GameResponse {
-        val details = parse(data).toDetails()
-        gameService.checkCanUpdate(user, gameId)
+        val details = parse(data).toDetails(imageStorage::isStoredUrl)
+        gameService.checkCanUpdate(user, gameId, replacesBuild = file != null)
 
         val build = file?.let { storeBuild(gameId, it) }
         val game =

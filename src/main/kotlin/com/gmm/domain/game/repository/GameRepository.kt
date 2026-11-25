@@ -12,6 +12,8 @@ interface GameRepository : JpaRepository<Game, String> {
     @Query("select g.id from Game g where g.jamId = :jamId")
     fun findIdsByJamId(jamId: String): List<String>
 
+    fun countByJamIdAndOwnerId(jamId: String, ownerId: String): Long
+
     fun findAllByOwnerIdAndReviewStatusOrderByCreatedAtDesc(ownerId: String, reviewStatus: ReviewStatus): List<Game>
 
     fun findAllByJamIdAndReviewStatusOrderByCreatedAtAsc(jamId: String, reviewStatus: ReviewStatus): List<Game>

@@ -31,9 +31,10 @@ data class ProfileAwardResponse(
 
 /** Body of `PUT /users/me/avatar`. Null resets to the default avatar. */
 data class AvatarRequest(val avatarUrl: String? = null) {
-    fun normalized(): String? {
+    /** [isUploadedImage] accepts only URLs from the image upload API. */
+    fun normalized(isUploadedImage: (String) -> Boolean): String? {
         val url = avatarUrl?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        if (url.length > URL_MAX || !(url.startsWith("https://") || url.startsWith("http://"))) {
+        if (url.length > URL_MAX || !isUploadedImage(url)) {
             throw GmmException(ErrorCode.INVALID_AVATAR)
         }
         return url

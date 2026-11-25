@@ -24,6 +24,7 @@ import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
+import io.mockk.verifyOrder
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -64,6 +65,36 @@ class GameServiceTest :
             service.checkCanUpload(admin, "jam")
         }
 
+        test("participants create one game per jam; admins have no limit") {
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"))
+            every { gameRepository.countByJamIdAndOwnerId("jam", owner.id) } returns 0
+            every { gameRepository.countByJamIdAndOwnerId("jam", admin.id) } returns 3
+            service.checkCanCreate(owner, "jam")
+            service.checkCanCreate(admin, "jam")
+
+            every { gameRepository.countByJamIdAndOwnerId("jam", owner.id) } returns 1
+            shouldThrow<GmmException> { service.checkCanCreate(owner, "jam") }.code shouldBe
+                ErrorCode.GAME_LIMIT_REACHED
+        }
+
+        test("create locks the jam and checks the limit again before saving") {
+            val ongoing = jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z")
+            every { jamRepository.findForUpdate("jam") } returns ongoing
+            every { jamRepository.findById("jam") } returns Optional.of(ongoing)
+            // Another upload by the same user committed while this build was processed.
+            every { gameRepository.countByJamIdAndOwnerId("jam", owner.id) } returns 1
+
+            shouldThrow<GmmException> {
+                service.create("new", owner, "jam", details, GameBuild("new/b", "B", "b.zip"))
+            }.code shouldBe ErrorCode.GAME_LIMIT_REACHED
+            verifyOrder {
+                jamRepository.findForUpdate("jam")
+                gameRepository.countByJamIdAndOwnerId("jam", owner.id)
+            }
+            verify(exactly = 0) { gameRepository.save(any()) }
+        }
+
         test("rejects a missing jam with 400 so the upload form stays") {
             every { jamRepository.findById("missing") } returns Optional.empty()
 
@@ -75,14 +106,17 @@ class GameServiceTest :
             val pending = game()
             every { gameRepository.findById("game") } returns Optional.of(pending)
 
-            shouldThrow<GmmException> { service.checkCanUpdate(other, "game") }.code shouldBe ErrorCode.GAME_NOT_FOUND
-            service.checkCanUpdate(owner, "game")
-            service.checkCanUpdate(admin, "game")
+            shouldThrow<GmmException> { service.checkCanUpdate(other, "game", replacesBuild = false) }.code shouldBe
+                ErrorCode.GAME_NOT_FOUND
+            service.checkCanUpdate(owner, "game", replacesBuild = false)
+            service.checkCanUpdate(admin, "game", replacesBuild = false)
         }
 
         test("a new build resets review to pending and clears the reject reason") {
             val game = game()
             every { gameRepository.findById("game") } returns Optional.of(game)
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"))
 
             val updated = service.update(
                 owner,
@@ -97,6 +131,25 @@ class GameServiceTest :
             updated.rejectReason shouldBe null
             // No transaction is active in this unit test, so the old folder is deleted right away.
             verify { buildStorage.delete("g/old") }
+        }
+
+        test("after the jam ends, participants edit details but cannot replace the build; admins can") {
+            val game = game()
+            every { gameRepository.findById("game") } returns Optional.of(game)
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-10T00:00:00Z", "2026-11-12T00:00:00Z"))
+            val build = GameBuild("g/new", "New", "new.zip")
+
+            service.checkCanUpdate(owner, "game", replacesBuild = false)
+            shouldThrow<GmmException> { service.checkCanUpdate(owner, "game", replacesBuild = true) }.code shouldBe
+                ErrorCode.JAM_NOT_ONGOING
+            shouldThrow<GmmException> { service.update(owner, "game", details, build) }.code shouldBe
+                ErrorCode.JAM_NOT_ONGOING
+            game.buildPath shouldBe "g/old"
+            service.update(owner, "game", details.copy(title = "오타 수정"), null).title shouldBe "오타 수정"
+
+            service.checkCanUpdate(admin, "game", replacesBuild = true)
+            service.update(admin, "game", details, build).buildPath shouldBe "g/new"
         }
 
         test("an update without a build keeps the build") {
