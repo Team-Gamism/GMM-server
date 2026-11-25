@@ -45,6 +45,7 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     GAME_DELETE_NOT_OWNER(HttpStatus.FORBIDDEN, "내 게임만 삭제할 수 있어요."),
     INVALID_UPLOAD_STATUS(HttpStatus.BAD_REQUEST, "업로드 확인 상태가 올바르지 않아요."),
     INVALID_GAME_INPUT(HttpStatus.BAD_REQUEST, "게임 정보가 올바르지 않아요."),
+    GAME_LIMIT_REACHED(HttpStatus.BAD_REQUEST, "이 게임잼에는 이미 게임을 올렸어요. 올린 게임을 수정해 주세요."),
 
     // Review
     REVIEW_OWN_GAME(HttpStatus.BAD_REQUEST, "내 게임은 평가할 수 없어요."),
