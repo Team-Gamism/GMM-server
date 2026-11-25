@@ -52,15 +52,22 @@ class GameService(
         )
     }
 
+    /**
+     * Owners and admins edit the details at any time. Like uploads, only an ongoing jam takes a new build from
+     * participants, so the build that was judged cannot be swapped afterwards.
+     */
     @Transactional(readOnly = true)
-    fun checkCanUpdate(user: AuthUser, gameId: String) {
-        findManageable(user, gameId)
+    fun checkCanUpdate(user: AuthUser, gameId: String, replacesBuild: Boolean) {
+        val game = findManageable(user, gameId)
+        if (replacesBuild) checkCanUpload(user, game.jamId)
     }
 
     /** Updates the game. When [build] is given, the previous build folder is deleted after commit. */
     @Transactional
     fun update(user: AuthUser, gameId: String, details: GameDetails, build: GameBuild?): Game {
         val game = findManageable(user, gameId)
+        // Check again: the jam can end while the build is processed.
+        if (build != null) checkCanUpload(user, game.jamId)
         val now = clock.nowMillis()
         game.updateDetails(details, now)
         if (build != null) {

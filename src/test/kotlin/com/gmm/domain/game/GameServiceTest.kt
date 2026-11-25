@@ -75,14 +75,17 @@ class GameServiceTest :
             val pending = game()
             every { gameRepository.findById("game") } returns Optional.of(pending)
 
-            shouldThrow<GmmException> { service.checkCanUpdate(other, "game") }.code shouldBe ErrorCode.GAME_NOT_FOUND
-            service.checkCanUpdate(owner, "game")
-            service.checkCanUpdate(admin, "game")
+            shouldThrow<GmmException> { service.checkCanUpdate(other, "game", replacesBuild = false) }.code shouldBe
+                ErrorCode.GAME_NOT_FOUND
+            service.checkCanUpdate(owner, "game", replacesBuild = false)
+            service.checkCanUpdate(admin, "game", replacesBuild = false)
         }
 
         test("a new build resets review to pending and clears the reject reason") {
             val game = game()
             every { gameRepository.findById("game") } returns Optional.of(game)
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"))
 
             val updated = service.update(
                 owner,
@@ -97,6 +100,25 @@ class GameServiceTest :
             updated.rejectReason shouldBe null
             // No transaction is active in this unit test, so the old folder is deleted right away.
             verify { buildStorage.delete("g/old") }
+        }
+
+        test("after the jam ends, participants edit details but cannot replace the build; admins can") {
+            val game = game()
+            every { gameRepository.findById("game") } returns Optional.of(game)
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-10T00:00:00Z", "2026-11-12T00:00:00Z"))
+            val build = GameBuild("g/new", "New", "new.zip")
+
+            service.checkCanUpdate(owner, "game", replacesBuild = false)
+            shouldThrow<GmmException> { service.checkCanUpdate(owner, "game", replacesBuild = true) }.code shouldBe
+                ErrorCode.JAM_NOT_ONGOING
+            shouldThrow<GmmException> { service.update(owner, "game", details, build) }.code shouldBe
+                ErrorCode.JAM_NOT_ONGOING
+            game.buildPath shouldBe "g/old"
+            service.update(owner, "game", details.copy(title = "오타 수정"), null).title shouldBe "오타 수정"
+
+            service.checkCanUpdate(admin, "game", replacesBuild = true)
+            service.update(admin, "game", details, build).buildPath shouldBe "g/new"
         }
 
         test("an update without a build keeps the build") {
