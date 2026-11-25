@@ -23,7 +23,7 @@ class BuildProcessorTest :
         beforeEach { dir = Files.createTempDirectory("unity-build-test") }
         afterEach { dir.toFile().deleteRecursively() }
 
-        fun process(entries: Map<String, ByteArray>, using: BuildProcessor = processor): Pair<String, Path> {
+        fun process(entries: Map<String, ByteArray>, using: BuildProcessor = processor): Pair<String?, Path> {
             val out = dir.resolve("out")
             return using.process(ZipFixtures.write(dir, entries), out) to out
         }
