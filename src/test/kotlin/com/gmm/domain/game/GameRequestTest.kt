@@ -14,6 +14,7 @@ import io.kotest.matchers.string.shouldContain
 
 class GameRequestTest :
     FunSpec({
+        val uploaded: (String) -> Boolean = { it.startsWith("https://games.test/images/") }
         val valid =
             GameRequest(
                 jamId = "j-now",
@@ -21,7 +22,7 @@ class GameRequestTest :
                 tagline = "줄어들수록 빨라지는 히어로의 탈출기",
                 description = "조작법\n- 이동: 방향키",
                 genre = Genre.ACTION,
-                iconUrl = "https://cdn.example/icons/abc.jpg",
+                iconUrl = "https://games.test/images/abc.jpg",
                 orientation = Orientation.LANDSCAPE,
                 env =
                 GameRequest.EnvRequest(
@@ -32,10 +33,13 @@ class GameRequestTest :
             )
 
         fun rejected(request: GameRequest): GmmException =
-            shouldThrow<GmmException> { request.toDetails() }.also { it.code shouldBe ErrorCode.INVALID_GAME_INPUT }
+            shouldThrow<GmmException> { request.toDetails(uploaded) }.also {
+                it.code shouldBe
+                    ErrorCode.INVALID_GAME_INPUT
+            }
 
         test("trims the title and removes duplicate platforms") {
-            val details = valid.toDetails()
+            val details = valid.toDetails(uploaded)
 
             details.title shouldBe "미니미 히어로"
             details.platforms shouldBe listOf(Platform.PC)
@@ -44,7 +48,7 @@ class GameRequestTest :
         test("requires a title of at most 40 characters") {
             rejected(valid.copy(title = " ")).message shouldContain "제목을 입력"
             rejected(valid.copy(title = "가".repeat(41))).message shouldContain "40자 이하"
-            valid.copy(title = "가".repeat(40)).toDetails().title.length shouldBe 40
+            valid.copy(title = "가".repeat(40)).toDetails(uploaded).title.length shouldBe 40
         }
 
         test("limits the tagline to 80 characters") {
@@ -58,8 +62,10 @@ class GameRequestTest :
             rejected(valid.copy(env = null)).message shouldContain "플랫폼"
         }
 
-        test("accepts only http(s) icon URLs and treats blank as no icon") {
-            valid.copy(iconUrl = " ").toDetails().iconUrl shouldBe null
+        test("accepts only uploaded icon URLs and treats blank as no icon") {
+            valid.toDetails(uploaded).iconUrl shouldBe "https://games.test/images/abc.jpg"
+            valid.copy(iconUrl = " ").toDetails(uploaded).iconUrl shouldBe null
+            rejected(valid.copy(iconUrl = "https://attacker.example/t.png")).message shouldContain "아이콘"
             rejected(valid.copy(iconUrl = "data:image/png;base64,AAAA")).message shouldContain "아이콘"
             rejected(valid.copy(iconUrl = "javascript:alert(1)")).message shouldContain "아이콘"
         }

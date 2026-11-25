@@ -1,5 +1,6 @@
 package com.gmm.domain.jam.presentation
 
+import com.gmm.domain.image.storage.ImageStorage
 import com.gmm.domain.jam.service.JamService
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.auth.CurrentUser
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController
 @Tag(name = "Jam", description = "게임잼")
 @RestController
 @RequestMapping("/jams")
-class JamController(private val jamService: JamService) {
+class JamController(private val jamService: JamService, private val imageStorage: ImageStorage) {
     @GetMapping
     fun list(): List<JamResponse> = jamService.list()
 
@@ -26,15 +27,17 @@ class JamController(private val jamService: JamService) {
     fun get(@PathVariable jamId: String): JamResponse = jamService.get(jamId)
 
     @PostMapping
-    fun create(@CurrentUser user: AuthUser, @RequestBody request: JamRequest): ResponseEntity<JamResponse> =
-        ResponseEntity.status(HttpStatus.CREATED).body(jamService.create(user, request.toDetails()))
+    fun create(@CurrentUser user: AuthUser, @RequestBody request: JamRequest): ResponseEntity<JamResponse> {
+        val details = request.toDetails(imageStorage::isStoredUrl)
+        return ResponseEntity.status(HttpStatus.CREATED).body(jamService.create(user, details))
+    }
 
     @PutMapping("/{jamId}")
     fun update(
         @CurrentUser user: AuthUser,
         @PathVariable jamId: String,
         @RequestBody request: JamRequest,
-    ): JamResponse = jamService.update(user, jamId, request.toDetails())
+    ): JamResponse = jamService.update(user, jamId, request.toDetails(imageStorage::isStoredUrl))
 
     @DeleteMapping("/{jamId}")
     fun delete(@CurrentUser user: AuthUser, @PathVariable jamId: String): ResponseEntity<Void> {

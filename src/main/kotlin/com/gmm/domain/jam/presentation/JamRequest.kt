@@ -15,7 +15,8 @@ data class JamRequest(
     val startAt: Instant? = null,
     val endAt: Instant? = null,
 ) {
-    fun toDetails(): JamDetails {
+    /** [isUploadedImage] accepts only URLs from the image upload API. */
+    fun toDetails(isUploadedImage: (String) -> Boolean): JamDetails {
         val name = name?.trim().orEmpty()
         if (name.isEmpty()) reject("게임잼 이름을 입력해 주세요.")
         if (name.length > NAME_MAX) reject("게임잼 이름은 ${NAME_MAX}자 이하로 입력해 주세요.")
@@ -35,15 +36,15 @@ data class JamRequest(
             name = name,
             description = description,
             theme = theme,
-            coverUrl = normalizeCoverUrl(coverUrl),
+            coverUrl = normalizeCoverUrl(coverUrl, isUploadedImage),
             startAt = startAt,
             endAt = endAt,
         )
     }
 
-    private fun normalizeCoverUrl(value: String?): String? {
+    private fun normalizeCoverUrl(value: String?, isUploadedImage: (String) -> Boolean): String? {
         val url = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        if (url.length > URL_MAX || !(url.startsWith("https://") || url.startsWith("http://"))) {
+        if (url.length > URL_MAX || !isUploadedImage(url)) {
             reject("대표 이미지 주소가 올바르지 않아요. 이미지를 다시 올려 주세요.")
         }
         return url
