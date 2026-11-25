@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.Instant
 
 @Entity
@@ -88,6 +89,15 @@ class Game(
 
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = createdAt
+        protected set
+
+    /**
+     * Optimistic lock. A metadata edit, a build replacement and an upload review can overlap; without it the
+     * last commit would write back a stale build path. Null until persisted, so Spring Data treats a new game as new.
+     */
+    @Version
+    @Column(nullable = false)
+    var version: Long? = null
         protected set
 
     fun updateDetails(details: GameDetails, now: Instant) {

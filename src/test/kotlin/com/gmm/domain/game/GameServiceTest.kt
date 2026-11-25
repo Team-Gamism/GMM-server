@@ -25,6 +25,7 @@ import io.mockk.mockk
 import io.mockk.runs
 import io.mockk.verify
 import io.mockk.verifyOrder
+import jakarta.persistence.Version
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -150,6 +151,14 @@ class GameServiceTest :
 
             service.checkCanUpdate(admin, "game", replacesBuild = true)
             service.update(admin, "game", details, build).buildPath shouldBe "g/new"
+        }
+
+        test(
+            "games carry an optimistic lock, so overlapping edits, build swaps and reviews cannot overwrite each other",
+        ) {
+            Game::class.java.getDeclaredField("version").isAnnotationPresent(Version::class.java) shouldBe true
+            // Null until persisted, so Spring Data persists a new game instead of merging it.
+            game().version shouldBe null
         }
 
         test("an update without a build keeps the build") {
