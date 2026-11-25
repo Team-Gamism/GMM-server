@@ -19,6 +19,7 @@ import kotlin.io.path.readBytes
 class ImageServiceTest :
     FunSpec({
         lateinit var root: Path
+        lateinit var storage: LocalDiskImageStorage
         lateinit var service: ImageService
 
         beforeEach {
@@ -28,7 +29,8 @@ class ImageServiceTest :
                     build = GmmProperties.Build(rootDir = root, publicBaseUrl = "https://games.test/"),
                     image = GmmProperties.Image(maxSize = DataSize.ofBytes(64)),
                 )
-            service = ImageService(LocalDiskImageStorage(properties), properties)
+            storage = LocalDiskImageStorage(properties)
+            service = ImageService(storage, properties)
         }
         afterEach { root.toFile().deleteRecursively() }
 
@@ -64,5 +66,14 @@ class ImageServiceTest :
             shouldThrow<GmmException> {
                 service.upload(file("<svg onload=alert(1)>".toByteArray(), name = "x.png"))
             }.code shouldBe ErrorCode.IMAGE_INVALID
+        }
+        test("recognizes only URLs that the storage hands out") {
+            val url = service.upload(file(png))
+
+            storage.isStoredUrl(url) shouldBe true
+            storage.isStoredUrl("https://attacker.example/images/${url.substringAfterLast('/')}") shouldBe false
+            storage.isStoredUrl("http://games.test/images/${url.substringAfterLast('/')}") shouldBe false
+            storage.isStoredUrl("https://games.test/images/../builds/x/index.html") shouldBe false
+            storage.isStoredUrl("https://games.test/images/a.svg") shouldBe false
         }
     })

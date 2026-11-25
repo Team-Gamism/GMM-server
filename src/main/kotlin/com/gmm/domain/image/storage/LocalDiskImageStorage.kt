@@ -33,7 +33,12 @@ class LocalDiskImageStorage(properties: GmmProperties) : ImageStorage {
         return "$publicBaseUrl/images/$fileName"
     }
 
+    private val storedUrl = Regex("^${Regex.escape(publicBaseUrl)}/images/$UUID\\.(jpg|png|webp)$")
+
+    override fun isStoredUrl(url: String): Boolean = storedUrl.matches(url)
+
     companion object {
         val ALLOWED_EXTENSIONS = setOf("jpg", "png", "webp")
+        private const val UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     }
 }

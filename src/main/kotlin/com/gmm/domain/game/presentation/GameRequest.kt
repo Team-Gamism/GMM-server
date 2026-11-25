@@ -27,7 +27,8 @@ data class GameRequest(
 
     fun requireJamId(): String = jamId?.trim()?.takeIf { it.isNotEmpty() } ?: reject("게임잼을 선택해 주세요.")
 
-    fun toDetails(): GameDetails {
+    /** [isUploadedImage] accepts only URLs from the image upload API. */
+    fun toDetails(isUploadedImage: (String) -> Boolean): GameDetails {
         val title = title?.trim().orEmpty()
         if (title.isEmpty()) reject("게임 제목을 입력해 주세요.")
         if (title.length > TITLE_MAX) reject("게임 제목은 ${TITLE_MAX}자 이하로 입력해 주세요.")
@@ -49,7 +50,7 @@ data class GameRequest(
             tagline = tagline,
             description = description,
             genre = genre ?: reject("장르를 선택해 주세요."),
-            iconUrl = normalizeIconUrl(iconUrl),
+            iconUrl = normalizeIconUrl(iconUrl, isUploadedImage),
             orientation = orientation ?: reject("화면 방향을 선택해 주세요."),
             platforms = platforms,
             inputs = env?.inputs.orEmpty().distinct(),
@@ -57,9 +58,9 @@ data class GameRequest(
         )
     }
 
-    private fun normalizeIconUrl(value: String?): String? {
+    private fun normalizeIconUrl(value: String?, isUploadedImage: (String) -> Boolean): String? {
         val url = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        if (url.length > URL_MAX || !(url.startsWith("https://") || url.startsWith("http://"))) {
+        if (url.length > URL_MAX || !isUploadedImage(url)) {
             reject("아이콘 주소가 올바르지 않아요. 이미지를 다시 올려 주세요.")
         }
         return url

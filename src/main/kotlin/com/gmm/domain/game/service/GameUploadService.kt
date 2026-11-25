@@ -6,6 +6,7 @@ import com.gmm.domain.build.storage.BuildStorage
 import com.gmm.domain.game.entity.GameBuild
 import com.gmm.domain.game.presentation.GameRequest
 import com.gmm.domain.game.presentation.GameResponse
+import com.gmm.domain.image.storage.ImageStorage
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.config.GmmProperties
 import com.gmm.global.exception.ErrorCode
@@ -33,6 +34,7 @@ class GameUploadService(
     private val gameService: GameService,
     private val buildStorage: BuildStorage,
     private val jsonMapper: JsonMapper,
+    private val imageStorage: ImageStorage,
     properties: GmmProperties,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
@@ -47,7 +49,7 @@ class GameUploadService(
     fun create(user: AuthUser, data: String, file: MultipartFile): GameResponse {
         val request = parse(data)
         val jamId = request.requireJamId()
-        val details = request.toDetails()
+        val details = request.toDetails(imageStorage::isStoredUrl)
         gameService.checkCanUpload(user, jamId)
 
         val gameId = Ids.new()
@@ -65,7 +67,7 @@ class GameUploadService(
 
     /** `jamId` in [data] is ignored: a game cannot move to another jam. */
     fun update(user: AuthUser, gameId: String, data: String, file: MultipartFile?): GameResponse {
-        val details = parse(data).toDetails()
+        val details = parse(data).toDetails(imageStorage::isStoredUrl)
         gameService.checkCanUpdate(user, gameId)
 
         val build = file?.let { storeBuild(gameId, it) }
