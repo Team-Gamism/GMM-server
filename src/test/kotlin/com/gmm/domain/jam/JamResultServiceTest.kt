@@ -101,7 +101,7 @@ class JamResultServiceTest :
             every { summaries.summarize(games, stats) } returns
                 listOf(summary(games[0], 3.0), summary(games[1], 4.0), summary(games[2], null))
 
-            val ranking = service.ranking("jam")
+            val ranking = service.ranking(admin, "jam")
 
             ranking.map { it.game.game.id to it.rank } shouldBe listOf("b" to 1, "a" to 2, "c" to 3)
             ranking[1].criteria.getValue("fun") shouldBe CriterionResponse(5.0, 1)
@@ -170,6 +170,19 @@ class JamResultServiceTest :
         test("ranking of a missing jam is 404") {
             every { jamRepository.findById("missing") } returns Optional.empty()
 
-            shouldThrow<GmmException> { service.ranking("missing") }.code shouldBe ErrorCode.JAM_NOT_FOUND
+            shouldThrow<GmmException> { service.ranking(admin, "missing") }.code shouldBe ErrorCode.JAM_NOT_FOUND
+        }
+
+        test("before the results are announced only admins see the ranking") {
+            every { summaries.stats(any()) } returns emptyMap()
+            every { summaries.summarize(games, emptyMap()) } returns games.map { summary(it, null) }
+
+            shouldThrow<GmmException> { service.ranking(user, "jam") }.code shouldBe ErrorCode.RESULTS_NOT_ANNOUNCED
+            shouldThrow<GmmException> { service.ranking(null, "jam") }.code shouldBe ErrorCode.RESULTS_NOT_ANNOUNCED
+            service.ranking(admin, "jam").size shouldBe 3
+
+            jam.announce(now)
+            service.ranking(user, "jam").size shouldBe 3
+            service.ranking(null, "jam").size shouldBe 3
         }
     })
