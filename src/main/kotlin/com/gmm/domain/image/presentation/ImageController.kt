@@ -20,11 +20,12 @@ import org.springframework.web.multipart.MultipartFile
 class ImageController(private val imageService: ImageService) {
     @Operation(
         summary = "이미지 업로드",
-        description = "아이콘·대표 이미지·프로필 사진을 먼저 올리고, 받은 url을 각 API의 JSON에 넣어요. JPEG·PNG·WebP, 5MB 이하.",
+        description = "아이콘·대표 이미지·프로필 사진을 먼저 올리고, 받은 url을 각 API의 JSON에 넣어요. " +
+            "JPEG·PNG·WebP, 기본 5MB 이하. 하루 50장까지(어드민 제외).",
     )
     @PostMapping("/images", consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
     fun upload(@CurrentUser user: AuthUser, @RequestPart("file") file: MultipartFile): ResponseEntity<ImageResponse> =
-        ResponseEntity.status(HttpStatus.CREATED).body(ImageResponse(imageService.upload(file)))
+        ResponseEntity.status(HttpStatus.CREATED).body(ImageResponse(imageService.upload(user, file)))
 }
 
 data class ImageResponse(val url: String)

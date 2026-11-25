@@ -56,7 +56,8 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     // Image
     IMAGE_REQUIRED(HttpStatus.BAD_REQUEST, "이미지 파일을 첨부해 주세요."),
     IMAGE_INVALID(HttpStatus.BAD_REQUEST, "JPEG, PNG, WebP 이미지만 올릴 수 있어요."),
-    IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "이미지는 5MB 이하만 올릴 수 있어요."),
+    IMAGE_TOO_LARGE(HttpStatus.PAYLOAD_TOO_LARGE, "이미지 용량이 너무 커요."),
+    IMAGE_DAILY_LIMIT(HttpStatus.TOO_MANY_REQUESTS, "오늘은 이미지를 더 올릴 수 없어요. 내일 다시 올려 주세요."),
 
     // Build
     BUILD_REQUIRED(HttpStatus.BAD_REQUEST, "빌드 zip 파일을 첨부해 주세요."),

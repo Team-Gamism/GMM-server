@@ -2,6 +2,8 @@ package com.gmm.domain.image
 
 import com.gmm.domain.image.service.ImageService
 import com.gmm.domain.image.storage.LocalDiskImageStorage
+import com.gmm.domain.user.entity.UserRole
+import com.gmm.global.auth.AuthUser
 import com.gmm.global.config.GmmProperties
 import com.gmm.global.exception.ErrorCode
 import com.gmm.global.exception.GmmException
@@ -13,12 +15,18 @@ import org.springframework.mock.web.MockMultipartFile
 import org.springframework.util.unit.DataSize
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.readBytes
 
 class ImageServiceTest :
     FunSpec({
         lateinit var root: Path
+        val user = AuthUser("u1", UserRole.USER)
+        val clock = MutableClock(Instant.parse("2026-11-24T14:00:00Z")) // 23:00 in Korea
         lateinit var storage: LocalDiskImageStorage
         lateinit var service: ImageService
 
@@ -30,7 +38,7 @@ class ImageServiceTest :
                     image = GmmProperties.Image(maxSize = DataSize.ofBytes(64)),
                 )
             storage = LocalDiskImageStorage(properties)
-            service = ImageService(storage, properties)
+            service = ImageService(storage, properties, clock)
         }
         afterEach { root.toFile().deleteRecursively() }
 
@@ -51,7 +59,7 @@ class ImageServiceTest :
         }
 
         test("stores the image under images/ and returns its public URL") {
-            val url = service.upload(file(jpeg, name = "photo.png", type = "image/png"))
+            val url = service.upload(user, file(jpeg, name = "photo.png", type = "image/png"))
 
             url shouldMatch Regex("^https://games\\.test/images/[0-9a-f-]{36}\\.jpg$")
             val stored = root.resolve("images").listDirectoryEntries().single()
@@ -60,15 +68,16 @@ class ImageServiceTest :
         }
 
         test("rejects empty, oversized, and non-image files") {
-            shouldThrow<GmmException> { service.upload(file(ByteArray(0))) }.code shouldBe ErrorCode.IMAGE_REQUIRED
-            shouldThrow<GmmException> { service.upload(file(png + ByteArray(64))) }.code shouldBe
+            shouldThrow<GmmException> { service.upload(user, file(ByteArray(0))) }.code shouldBe
+                ErrorCode.IMAGE_REQUIRED
+            shouldThrow<GmmException> { service.upload(user, file(png + ByteArray(64))) }.code shouldBe
                 ErrorCode.IMAGE_TOO_LARGE
             shouldThrow<GmmException> {
-                service.upload(file("<svg onload=alert(1)>".toByteArray(), name = "x.png"))
+                service.upload(user, file("<svg onload=alert(1)>".toByteArray(), name = "x.png"))
             }.code shouldBe ErrorCode.IMAGE_INVALID
         }
         test("recognizes only URLs that the storage hands out") {
-            val url = service.upload(file(png))
+            val url = service.upload(user, file(png))
 
             storage.isStoredUrl(url) shouldBe true
             storage.isStoredUrl("https://attacker.example/images/${url.substringAfterLast('/')}") shouldBe false
@@ -76,4 +85,42 @@ class ImageServiceTest :
             storage.isStoredUrl("https://games.test/images/../builds/x/index.html") shouldBe false
             storage.isStoredUrl("https://games.test/images/a.svg") shouldBe false
         }
+        test("the size message follows the configured limit") {
+            val properties =
+                GmmProperties(
+                    build = GmmProperties.Build(rootDir = root, publicBaseUrl = "https://games.test/"),
+                    image = GmmProperties.Image(maxSize = DataSize.ofMegabytes(2)),
+                )
+            val twoMegabytes = ImageService(LocalDiskImageStorage(properties), properties, clock)
+
+            shouldThrow<GmmException> {
+                twoMegabytes.upload(user, file(png + ByteArray(2 * 1024 * 1024)))
+            }.message shouldBe "이미지는 2MB 이하만 올릴 수 있어요."
+        }
+        test("participants upload at most 50 images a Korean day; admins have no limit") {
+            repeat(ImageService.DAILY_LIMIT) { service.upload(user, file(png)) }
+            shouldThrow<GmmException> { service.upload(user, file(png)) }.code shouldBe ErrorCode.IMAGE_DAILY_LIMIT
+            service.upload(AuthUser("u2", UserRole.USER), file(png))
+            service.upload(AuthUser("admin", UserRole.ADMIN), file(png))
+
+            clock.now = Instant.parse("2026-11-24T15:00:00Z") // midnight in Korea
+            service.upload(user, file(png))
+        }
     })
+
+/** A clock tests can move forward. */
+private class MutableClock(var now: Instant, private val zone: ZoneId = ZoneOffset.UTC) : Clock() {
+    override fun getZone(): ZoneId = zone
+
+    override fun withZone(zone: ZoneId): Clock = MutableClockView(this, zone)
+
+    override fun instant(): Instant = now
+}
+
+private class MutableClockView(private val source: MutableClock, private val zone: ZoneId) : Clock() {
+    override fun getZone(): ZoneId = zone
+
+    override fun withZone(zone: ZoneId): Clock = source.withZone(zone)
+
+    override fun instant(): Instant = source.now
+}
