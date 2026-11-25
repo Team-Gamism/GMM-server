@@ -1,7 +1,7 @@
 package com.gmm.domain.build
 
 import com.gmm.domain.build.service.BuildLimits
-import com.gmm.domain.build.service.UnityBuildProcessor
+import com.gmm.domain.build.service.BuildProcessor
 import com.gmm.global.exception.ErrorCode
 import com.gmm.global.exception.GmmException
 import io.kotest.assertions.throwables.shouldThrow
@@ -14,21 +14,21 @@ import java.nio.file.Path
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 
-class UnityBuildProcessorTest :
+class BuildProcessorTest :
     FunSpec({
         val limits = BuildLimits(maxExtractedBytes = 1024 * 1024, maxFileCount = 100)
-        val processor = UnityBuildProcessor(limits)
+        val processor = BuildProcessor(limits)
         lateinit var dir: Path
 
         beforeEach { dir = Files.createTempDirectory("unity-build-test") }
         afterEach { dir.toFile().deleteRecursively() }
 
-        fun process(entries: Map<String, ByteArray>, using: UnityBuildProcessor = processor): Pair<String, Path> {
+        fun process(entries: Map<String, ByteArray>, using: BuildProcessor = processor): Pair<String?, Path> {
             val out = dir.resolve("out")
             return using.process(ZipFixtures.write(dir, entries), out) to out
         }
 
-        fun rejected(entries: Map<String, ByteArray>, using: UnityBuildProcessor = processor): GmmException =
+        fun rejected(entries: Map<String, ByteArray>, using: BuildProcessor = processor): GmmException =
             shouldThrow<GmmException> { process(entries, using) }
 
         test("extracts a valid build and returns its build name") {
@@ -70,7 +70,7 @@ class UnityBuildProcessorTest :
         }
 
         test("rejects a zip without index.html") {
-            rejected(ZipFixtures.unityBuild() - "index.html").message shouldContain "index.html과 Build 폴더"
+            rejected(ZipFixtures.unityBuild() - "index.html").message shouldContain "index.html이 있어야"
         }
 
         test("rejects a build with a missing file") {
@@ -99,6 +99,36 @@ class UnityBuildProcessorTest :
             }
         }
 
+        test("extracts a web build with nested folders and returns no build name") {
+            val (name, out) = process(ZipFixtures.webBuild())
+
+            name shouldBe null
+            out.resolve("game.wasm").exists() shouldBe true
+            out.resolve("assets/game.pck").exists() shouldBe true
+        }
+
+        test("rejects a zip of the whole web build folder") {
+            rejected(ZipFixtures.webBuild(prefix = "MyGame/")).message shouldContain "폴더째 압축한"
+        }
+
+        test("rejects compressed files anywhere in a web build") {
+            listOf("game.wasm.gz", "assets/game.pck.br", "assets/GAME.JS.GZ").forEach { path ->
+                rejected(ZipFixtures.webBuild() + (path to ByteArray(1))).message shouldContain "사전 압축"
+            }
+        }
+
+        test("detects a Unity build from the loader call in index.html") {
+            val entries = ZipFixtures.webBuild() + ("index.html" to "createUnityInstance(canvas)".toByteArray())
+
+            rejected(entries).message shouldContain "같은 이름으로"
+        }
+
+        test("allows compressed files outside Build in a Unity build") {
+            val (name, _) = process(ZipFixtures.unityBuild() + ("StreamingAssets/data.gz" to ByteArray(1)))
+
+            name shouldBe "MiniHero"
+        }
+
         test("rejects zip slip paths") {
             listOf(
                 "../evil.txt",
@@ -107,21 +137,21 @@ class UnityBuildProcessorTest :
                 "C:/evil.txt",
                 "..\\evil.txt",
             ).forEach { path ->
-                val e = rejected(ZipFixtures.unityBuild() + (path to ByteArray(1)))
-
-                e.message shouldContain "허용되지 않는 경로"
+                listOf(ZipFixtures.unityBuild(), ZipFixtures.webBuild()).forEach { build ->
+                    rejected(build + (path to ByteArray(1))).message shouldContain "허용되지 않는 경로"
+                }
             }
             dir.parent.resolve("evil.txt").exists() shouldBe false
         }
 
         test("rejects archives over the file count limit") {
-            val small = UnityBuildProcessor(limits.copy(maxFileCount = 5))
+            val small = BuildProcessor(limits.copy(maxFileCount = 5))
 
             rejected(ZipFixtures.unityBuild(), small).message shouldContain "파일이 너무 많아요"
         }
 
         test("rejects archives over the extracted size limit") {
-            val small = UnityBuildProcessor(limits.copy(maxExtractedBytes = 1000))
+            val small = BuildProcessor(limits.copy(maxExtractedBytes = 1000))
             val entries = ZipFixtures.unityBuild() + ("StreamingAssets/big.bin" to ByteArray(4000))
 
             rejected(entries, small).code shouldBe ErrorCode.BUILD_TOO_LARGE

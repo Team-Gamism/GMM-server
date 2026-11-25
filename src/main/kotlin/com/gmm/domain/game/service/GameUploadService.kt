@@ -1,7 +1,7 @@
 package com.gmm.domain.game.service
 
 import com.gmm.domain.build.service.BuildLimits
-import com.gmm.domain.build.service.UnityBuildProcessor
+import com.gmm.domain.build.service.BuildProcessor
 import com.gmm.domain.build.storage.BuildStorage
 import com.gmm.domain.game.entity.GameBuild
 import com.gmm.domain.game.presentation.GameRequest
@@ -39,7 +39,7 @@ class GameUploadService(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
     private val processor =
-        UnityBuildProcessor(
+        BuildProcessor(
             BuildLimits(
                 maxExtractedBytes = properties.build.maxExtractedSize.toBytes(),
                 maxFileCount = properties.build.maxFileCount,
