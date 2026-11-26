@@ -12,7 +12,7 @@ data class UserProfileResponse(
     val generation: Int?,
     val avatarUrl: String?,
     val role: UserRole,
-    /** Approved entries. */
+    /** Entries in jams whose submissions closed. */
     val entryCount: Int,
     /** Awards with rank 1 in announced jams. Lower ranks show only in [awards]. */
     val winCount: Int,

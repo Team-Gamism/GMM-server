@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/users")
 class UserController(private val profileService: ProfileService, private val imageStorage: ImageStorage) {
-    @Operation(summary = "공개 프로필", description = "확인 완료된 출품작과 발표된 게임잼의 수상 기록만 보여요.")
+    @Operation(summary = "공개 프로필", description = "제출이 마감된 게임잼의 출품작과 발표된 게임잼의 수상 기록만 보여요.")
     @GetMapping("/{userId}/profile")
     fun profile(@PathVariable userId: String): UserProfileResponse = profileService.profile(userId)
 

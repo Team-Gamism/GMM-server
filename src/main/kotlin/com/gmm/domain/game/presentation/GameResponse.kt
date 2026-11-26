@@ -5,7 +5,6 @@ import com.gmm.domain.game.entity.Genre
 import com.gmm.domain.game.entity.InputDevice
 import com.gmm.domain.game.entity.Orientation
 import com.gmm.domain.game.entity.Platform
-import com.gmm.domain.game.entity.ReviewStatus
 import java.time.Instant
 
 data class GameResponse(
@@ -22,8 +21,6 @@ data class GameResponse(
     val buildUrl: String?,
     val buildName: String?,
     val buildFileName: String?,
-    val reviewStatus: ReviewStatus,
-    val rejectReason: String?,
     val createdAt: Instant,
     val updatedAt: Instant,
 ) {
@@ -44,8 +41,6 @@ data class GameResponse(
             buildUrl = game.buildPath?.let(buildUrl),
             buildName = game.buildName,
             buildFileName = game.buildFileName,
-            reviewStatus = game.reviewStatus,
-            rejectReason = game.rejectReason,
             createdAt = game.createdAt,
             updatedAt = game.updatedAt,
         )

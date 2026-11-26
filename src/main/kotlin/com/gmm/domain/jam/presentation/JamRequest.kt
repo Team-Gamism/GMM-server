@@ -14,6 +14,8 @@ data class JamRequest(
     val coverUrl: String? = null,
     val startAt: Instant? = null,
     val endAt: Instant? = null,
+    /** Days; fractions are rounded like the frontend's `Math.round`. Absent means [REVIEW_DAYS_DEFAULT]. */
+    val reviewDays: Double? = null,
 ) {
     /** [isUploadedImage] accepts only URLs from the image upload API. */
     fun toDetails(isUploadedImage: (String) -> Boolean): JamDetails {
@@ -32,6 +34,9 @@ data class JamRequest(
         val endAt = endAt?.truncatedTo(ChronoUnit.MILLIS) ?: reject("종료 시각을 입력해 주세요.")
         if (!endAt.isAfter(startAt)) reject("종료 시각은 시작 시각보다 뒤여야 해요.")
 
+        val reviewDays = reviewDays?.let { Math.round(it) } ?: REVIEW_DAYS_DEFAULT.toLong()
+        if (reviewDays !in REVIEW_DAYS_MIN..REVIEW_DAYS_MAX) reject("평가 기간은 1~30일로 정해 주세요.")
+
         return JamDetails(
             name = name,
             description = description,
@@ -39,6 +44,7 @@ data class JamRequest(
             coverUrl = normalizeCoverUrl(coverUrl, isUploadedImage),
             startAt = startAt,
             endAt = endAt,
+            reviewDays = reviewDays.toInt(),
         )
     }
 
@@ -57,5 +63,8 @@ data class JamRequest(
         const val THEME_MAX = 100
         const val DESCRIPTION_MAX = 10_000
         const val URL_MAX = 2048
+        const val REVIEW_DAYS_MIN = 1L
+        const val REVIEW_DAYS_MAX = 30L
+        const val REVIEW_DAYS_DEFAULT = 7
     }
 }

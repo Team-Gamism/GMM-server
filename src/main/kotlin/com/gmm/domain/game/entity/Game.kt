@@ -1,5 +1,6 @@
 package com.gmm.domain.game.entity
 
+import com.gmm.domain.jam.entity.JamStatus
 import com.gmm.global.auth.AuthUser
 import jakarta.persistence.Column
 import jakarta.persistence.Convert
@@ -78,21 +79,12 @@ class Game(
     var buildFileName: String? = build.fileName
         protected set
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "review_status", nullable = false)
-    var reviewStatus: ReviewStatus = ReviewStatus.PENDING
-        protected set
-
-    @Column(name = "reject_reason")
-    var rejectReason: String? = null
-        protected set
-
     @Column(name = "updated_at", nullable = false)
     var updatedAt: Instant = createdAt
         protected set
 
     /**
-     * Optimistic lock. A metadata edit, a build replacement and an upload review can overlap; without it the
+     * Optimistic lock. A metadata edit and a build replacement can overlap; without it the
      * last commit would write back a stale build path. Null until persisted, so Spring Data treats a new game as new.
      */
     @Version
@@ -113,44 +105,23 @@ class Game(
         updatedAt = now
     }
 
-    /** A new build always needs a fresh upload review. Returns the replaced build path. */
+    /** Returns the replaced build path. */
     fun replaceBuild(build: GameBuild, now: Instant): String? {
         val previous = buildPath
         buildPath = build.path
         buildName = build.name
         buildFileName = build.fileName
-        reviewStatus = ReviewStatus.PENDING
-        rejectReason = null
         updatedAt = now
         return previous
-    }
-
-    fun approve(now: Instant = updatedAt) {
-        reviewStatus = ReviewStatus.APPROVED
-        rejectReason = null
-        updatedAt = now
-    }
-
-    /** Sends the game back to the upload review queue. */
-    fun markPending(now: Instant = updatedAt) {
-        reviewStatus = ReviewStatus.PENDING
-        rejectReason = null
-        updatedAt = now
-    }
-
-    fun reject(reason: String, now: Instant = updatedAt) {
-        reviewStatus = ReviewStatus.REJECTED
-        rejectReason = reason
-        updatedAt = now
     }
 
     fun isOwnedBy(user: AuthUser): Boolean = ownerId == user.id
 
     fun canManage(user: AuthUser): Boolean = user.isAdmin || isOwnedBy(user)
 
-    /** Approved games are public. Pending and rejected games are visible to the owner and admins only. */
-    fun isVisibleTo(user: AuthUser?): Boolean =
-        reviewStatus == ReviewStatus.APPROVED || (user != null && canManage(user))
+    /** Games are public once the jam's submissions close. Until then only the owner and admins see them. */
+    fun isVisibleTo(user: AuthUser?, jamStatus: JamStatus): Boolean =
+        jamStatus.isPublic || (user != null && canManage(user))
 }
 
 data class GameDetails(

@@ -1,7 +1,6 @@
 package com.gmm.domain.game.repository
 
 import com.gmm.domain.game.entity.Game
-import com.gmm.domain.game.entity.ReviewStatus
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 
@@ -20,7 +19,7 @@ interface GameRepository : JpaRepository<Game, String> {
     )
     fun findAllByJamAndOwner(jamId: String?, ownerId: String?): List<Game>
 
-    fun findAllByOwnerIdAndReviewStatusOrderByCreatedAtDesc(ownerId: String, reviewStatus: ReviewStatus): List<Game>
+    fun findAllByOwnerIdOrderByCreatedAtDesc(ownerId: String): List<Game>
 
-    fun findAllByJamIdAndReviewStatusOrderByCreatedAtAsc(jamId: String, reviewStatus: ReviewStatus): List<Game>
+    fun findAllByJamIdOrderByCreatedAtAsc(jamId: String): List<Game>
 }

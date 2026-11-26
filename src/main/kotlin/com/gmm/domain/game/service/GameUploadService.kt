@@ -68,7 +68,7 @@ class GameUploadService(
     /** `jamId` in [data] is ignored: a game cannot move to another jam. */
     fun update(user: AuthUser, gameId: String, data: String, file: MultipartFile?): GameResponse {
         val details = parse(data).toDetails(imageStorage::isStoredUrl)
-        gameService.checkCanUpdate(user, gameId, replacesBuild = file != null)
+        gameService.checkCanUpdate(user, gameId)
 
         val build = file?.let { storeBuild(gameId, it) }
         val game =

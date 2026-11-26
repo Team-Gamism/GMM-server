@@ -28,8 +28,12 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.time.Clock
 import java.time.Instant
+import java.time.ZoneOffset
 import java.util.Optional
+
+private const val OPEN = "open"
 
 class GameQueryServiceTest :
     FunSpec({
@@ -45,7 +49,9 @@ class GameQueryServiceTest :
         val service =
             GameQueryService(
                 gameRepository,
+                jamRepository,
                 GameSummaries(userRepository, jamRepository, reviewRepository, buildStorage),
+                Clock.fixed(base, ZoneOffset.UTC),
             )
 
         val owner = AuthUser("owner", UserRole.USER)
@@ -55,7 +61,6 @@ class GameQueryServiceTest :
         fun game(
             id: String,
             minute: Long,
-            approved: Boolean = true,
             ownerId: String = owner.id,
             jamId: String = "jam",
             genre: Genre = Genre.ACTION,
@@ -63,10 +68,7 @@ class GameQueryServiceTest :
             title: String = "게임 $id",
         ): Game {
             val details = GameDetails(title, "", "", genre, null, orientation, listOf(Platform.PC), emptyList(), "")
-            val game =
-                Game(id, jamId, ownerId, details, GameBuild("$id/b", "B", "b.zip"), base.plusSeconds(minute * 60))
-            if (approved) game.approve()
-            return game
+            return Game(id, jamId, ownerId, details, GameBuild("$id/b", "B", "b.zip"), base.plusSeconds(minute * 60))
         }
 
         fun stats(id: String, average: Double?) = ReviewStats(
@@ -95,33 +97,41 @@ class GameQueryServiceTest :
             every { reviewRepository.findStats(any()) } returns stats
             every { userRepository.findAllById(any()) } returns
                 listOf(User("owner", 1, "o@gsm.hs.kr", "김하늘", "1101", UserRole.USER, base))
-            every { jamRepository.findAllById(any()) } returns
-                listOf(Jam("jam", "제4회 게임잼", "", "주제", null, base, base, "admin", base))
+            // "open" still takes submissions; every other jam has closed them.
+            every { jamRepository.findAllById(any()) } answers {
+                firstArg<Iterable<String>>().map { id ->
+                    val start = if (id == OPEN) base.minusSeconds(60) else base.minusSeconds(7200)
+                    Jam(id, "제4회 게임잼", "", "주제", null, start, start.plusSeconds(3600), 7, "admin", base)
+                }
+            }
+            every { jamRepository.findById(any()) } answers {
+                Optional.of(jamRepository.findAllById(listOf(firstArg<String>())).single())
+            }
         }
 
         fun ids(user: AuthUser?, query: GameQuery = GameQuery()) = service.list(user, query).map { it.game.id }
 
-        test("shows only approved games by default, even with includeUnapproved for guests") {
-            setUp(listOf(game("a", 1), game("p", 2, approved = false)))
+        test("shows only games of closed jams by default, even with includeHidden for guests") {
+            setUp(listOf(game("a", 1), game("p", 2, jamId = OPEN)))
 
             ids(null) shouldBe listOf("a")
-            ids(null, GameQuery(includeUnapproved = true)) shouldBe listOf("a")
+            ids(null, GameQuery(includeHidden = true)) shouldBe listOf("a")
             ids(owner) shouldBe listOf("a")
         }
 
-        test("mixes in unapproved games the caller may see when ownerId or includeUnapproved is given") {
+        test("mixes in hidden games the caller may see when ownerId or includeHidden is given") {
             setUp(
                 listOf(
                     game("a", 1),
-                    game("mine", 2, approved = false),
-                    game("theirs", 3, approved = false, ownerId = "x"),
+                    game("mine", 2, jamId = OPEN),
+                    game("theirs", 3, jamId = OPEN, ownerId = "x"),
                 ),
             )
 
             ids(owner, GameQuery(ownerId = owner.id)) shouldBe listOf("mine", "a")
-            ids(owner, GameQuery(includeUnapproved = true)) shouldBe listOf("mine", "a")
-            ids(other, GameQuery(includeUnapproved = true)) shouldBe listOf("a")
-            ids(admin, GameQuery(includeUnapproved = true)) shouldBe listOf("theirs", "mine", "a")
+            ids(owner, GameQuery(includeHidden = true)) shouldBe listOf("mine", "a")
+            ids(other, GameQuery(includeHidden = true)) shouldBe listOf("a")
+            ids(admin, GameQuery(includeHidden = true)) shouldBe listOf("theirs", "mine", "a")
         }
 
         test("filters by jam, genre, and orientation") {
@@ -170,10 +180,10 @@ class GameQueryServiceTest :
             summary.game.buildUrl shouldBe "https://g/a/b"
         }
 
-        test("detail hides unapproved games from others with 404") {
-            val pending = game("p", 1, approved = false)
-            every { gameRepository.findById("p") } returns Optional.of(pending)
-            setUp(listOf(pending))
+        test("detail hides games of a jam still taking submissions from others with 404") {
+            val hidden = game("p", 1, jamId = OPEN)
+            every { gameRepository.findById("p") } returns Optional.of(hidden)
+            setUp(listOf(hidden))
 
             shouldThrow<GmmException> { service.get(null, "p") }.code shouldBe ErrorCode.GAME_NOT_FOUND
             shouldThrow<GmmException> { service.get(other, "p") }.code shouldBe ErrorCode.GAME_NOT_FOUND

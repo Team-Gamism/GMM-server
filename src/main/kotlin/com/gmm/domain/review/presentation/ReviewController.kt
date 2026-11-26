@@ -25,7 +25,7 @@ class ReviewController(private val reviewService: ReviewService) {
 
     @Operation(
         summary = "내 평가 작성·수정",
-        description = "게임당 1개예요. 내 게임이거나 평가 기간(진행 중·심사 중)이 아니면 400이에요.",
+        description = "게임당 1개예요. 내 게임이거나 평가 기간(제출 마감 뒤 reviewDays일)이 아니면 400이에요.",
     )
     @PutMapping("/games/{gameId}/reviews/me")
     fun upsertMine(
