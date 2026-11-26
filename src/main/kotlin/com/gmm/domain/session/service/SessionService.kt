@@ -45,8 +45,8 @@ class SessionService(
     }
 
     /**
-     * Resolves the session and re-checks the role against the admin list on every request, so a
-     * removed admin loses access right away. It writes only when the stored role is out of date.
+     * Resolves the session and reads the role on every request, so a granted or revoked admin takes
+     * effect right away. It writes only when an owner's stored role is not admin yet.
      *
      * Not transactional on purpose: it runs on every request, and its two primary-key reads each use the
      * repository's own read-only transaction instead of one read-write transaction per request.
@@ -56,10 +56,10 @@ class SessionService(
         val session = sessionRepository.findById(hash(token)).orElse(null) ?: return null
         if (session.isExpiredAt(clock.instant())) return null
         val user = userRepository.findById(session.userId).orElse(null) ?: return null
-        val role = adminPolicy.roleFor(user.email)
+        val role = adminPolicy.roleFor(user.email, user.role)
         if (role != user.role) {
             userRepository.updateRole(user.id, role, clock.nowMillis())
-            log.info("Change role of user {} to {} from the admin list", user.id, role)
+            log.info("Change role of user {} to {} from the owner list", user.id, role)
         }
         return AuthUser(user.id, role)
     }
