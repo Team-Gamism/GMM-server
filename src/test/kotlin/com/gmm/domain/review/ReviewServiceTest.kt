@@ -59,7 +59,7 @@ class ReviewServiceTest :
         lateinit var game: Game
 
         fun jam(start: String, end: String) =
-            Jam("jam", "잼", "", "주제", null, Instant.parse(start), Instant.parse(end), "admin", now)
+            Jam("jam", "잼", "", "주제", null, Instant.parse(start), Instant.parse(end), 7, "admin", now)
 
         beforeEach {
             clearAllMocks()
@@ -71,10 +71,10 @@ class ReviewServiceTest :
                     ),
                     emptyList(), "",
                 )
-            game = Game("game", "jam", owner.id, details, GameBuild("g/b", "B", "b.zip"), now).also { it.approve() }
+            game = Game("game", "jam", owner.id, details, GameBuild("g/b", "B", "b.zip"), now)
             every { gameRepository.findById("game") } returns Optional.of(game)
             every { jamRepository.findById("jam") } returns
-                Optional.of(jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"))
+                Optional.of(jam("2026-11-15T00:00:00Z", "2026-11-17T00:00:00Z")) // reviewing
             every { reviewRepository.findByGameIdAndAuthorId(any(), any()) } returns null
             every { reviewRepository.saveAndFlush(any()) } answers { firstArg() }
         }
@@ -108,15 +108,21 @@ class ReviewServiceTest :
                 ErrorCode.REVIEW_OWN_GAME
         }
 
-        test("allows reviews only while the jam is ongoing or judging") {
+        test("allows reviews only during the rating period") {
+            // Rating ends exactly now: endAt 11-12 + 7 days.
             every { jamRepository.findById("jam") } returns
                 Optional.of(jam("2026-11-10T00:00:00Z", "2026-11-12T00:00:00Z"))
-            service.upsertMine(admin, "game", valid) // judging
+            service.upsertMine(admin, "game", valid)
 
-            every { jamRepository.findById("jam") } returns
-                Optional.of(jam("2026-11-25T00:00:00Z", "2026-11-26T00:00:00Z"))
-            shouldThrow<GmmException> { service.upsertMine(admin, "game", valid) }.code shouldBe
-                ErrorCode.REVIEW_NOT_OPEN
+            listOf(
+                jam("2026-11-10T00:00:00Z", "2026-11-11T23:59:59Z"), // judging
+                jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"), // ongoing
+                jam("2026-11-25T00:00:00Z", "2026-11-26T00:00:00Z"), // upcoming
+            ).forEach {
+                every { jamRepository.findById("jam") } returns Optional.of(it)
+                shouldThrow<GmmException> { service.upsertMine(admin, "game", valid) }.message shouldBe
+                    "지금은 평가 기간이 아니에요."
+            }
         }
 
         test("requires every score from 1 to 5 and a 5 to 1000 character comment") {
@@ -135,8 +141,9 @@ class ReviewServiceTest :
                 .message shouldContain "1000자 이하"
         }
 
-        test("hides unapproved games from other users with 404") {
-            game.markPending()
+        test("hides games of a jam still taking submissions from other users with 404") {
+            every { jamRepository.findById("jam") } returns
+                Optional.of(jam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z"))
 
             shouldThrow<GmmException> { service.upsertMine(reviewer, "game", valid) }.code shouldBe
                 ErrorCode.GAME_NOT_FOUND

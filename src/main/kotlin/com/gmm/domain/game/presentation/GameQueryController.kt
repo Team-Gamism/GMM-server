@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController
 class GameQueryController(private val gameQueryService: GameQueryService) {
     @Operation(
         summary = "게임 목록",
-        description = "기본은 확인 완료된 게임만 보여요. ownerId가 있거나 includeUnapproved=true이면 볼 권한이 있는 미승인 게임도 섞어요.",
+        description = "기본은 제출이 마감된 게임잼의 게임만 보여요. ownerId가 있거나 includeHidden=true이면 볼 권한이 있는 공개 전 게임도 섞어요.",
     )
     @GetMapping
     fun list(
@@ -35,7 +35,7 @@ class GameQueryController(private val gameQueryService: GameQueryService) {
         @Parameter(description = "landscape | portrait") @RequestParam(required = false) orientation: String?,
         @Parameter(description = "제목·한 줄 소개·제작자 이름·장르 부분 일치") @RequestParam(required = false) q: String?,
         @Parameter(description = "recent(기본) | rating") @RequestParam(required = false) sort: String?,
-        @RequestParam(required = false, defaultValue = "false") includeUnapproved: Boolean,
+        @RequestParam(required = false, defaultValue = "false") includeHidden: Boolean,
     ): List<GameSummaryResponse> = gameQueryService.list(
         user,
         GameQuery(
@@ -51,11 +51,11 @@ class GameQueryController(private val gameQueryService: GameQueryService) {
                 "rating" -> GameSort.RATING
                 else -> throw GmmException(ErrorCode.INVALID_REQUEST, "정렬 방식이 올바르지 않아요.")
             },
-            includeUnapproved = includeUnapproved,
+            includeHidden = includeHidden,
         ),
     )
 
-    @Operation(summary = "게임 상세", description = "확인 대기·반려 게임은 제작자와 어드민만 볼 수 있어요. 그 외에는 404예요.")
+    @Operation(summary = "게임 상세", description = "제출 마감 전 게임은 제작자와 어드민만 볼 수 있어요. 그 외에는 404예요.")
     @GetMapping("/{gameId}")
     fun get(@CurrentUser(required = false) user: AuthUser?, @PathVariable gameId: String): GameSummaryResponse =
         gameQueryService.get(user, gameId)

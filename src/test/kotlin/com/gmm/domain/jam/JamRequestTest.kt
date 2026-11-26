@@ -48,6 +48,16 @@ class JamRequestTest :
             rejected(valid.copy(endAt = valid.startAt)).message shouldContain "뒤여야"
         }
 
+        test("rounds the rating period and keeps it within 1 to 30 days, 7 when absent") {
+            valid.copy(reviewDays = 2.5).toDetails(uploaded).reviewDays shouldBe 3
+            valid.copy(reviewDays = 0.5).toDetails(uploaded).reviewDays shouldBe 1
+            valid.copy(reviewDays = 30.4).toDetails(uploaded).reviewDays shouldBe 30
+            valid.toDetails(uploaded).reviewDays shouldBe 7
+            listOf(0.0, 0.4, 30.5, -1.0).forEach {
+                rejected(valid.copy(reviewDays = it)).message shouldBe "평가 기간은 1~30일로 정해 주세요."
+            }
+        }
+
         test("accepts only uploaded cover URLs and treats blank as no cover") {
             valid.toDetails(uploaded).coverUrl shouldBe "https://games.test/images/5.jpg"
             rejected(valid.copy(coverUrl = "http://attacker.example/c.jpg")).message shouldContain "대표 이미지"

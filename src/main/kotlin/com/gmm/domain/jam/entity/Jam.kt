@@ -17,6 +17,7 @@ class Jam(
     coverUrl: String?,
     startAt: Instant,
     endAt: Instant,
+    reviewDays: Int,
     @Column(name = "host_id", nullable = false)
     val hostId: String,
     @Column(name = "created_at", nullable = false)
@@ -46,6 +47,11 @@ class Jam(
     var endAt: Instant = endAt
         protected set
 
+    /** Rating period after [endAt], in days. */
+    @Column(name = "review_days", nullable = false)
+    var reviewDays: Int = reviewDays
+        protected set
+
     @Column(name = "announced_at")
     var announcedAt: Instant? = null
         protected set
@@ -54,7 +60,7 @@ class Jam(
     var updatedAt: Instant = createdAt
         protected set
 
-    fun statusAt(now: Instant): JamStatus = JamStatus.of(startAt, endAt, announcedAt, now)
+    fun statusAt(now: Instant): JamStatus = JamStatus.of(startAt, endAt, reviewDays, announcedAt, now)
 
     fun announce(now: Instant) {
         announcedAt = now
@@ -73,6 +79,7 @@ class Jam(
         coverUrl = details.coverUrl
         startAt = details.startAt
         endAt = details.endAt
+        reviewDays = details.reviewDays
         updatedAt = now
     }
 }
@@ -84,4 +91,5 @@ data class JamDetails(
     val coverUrl: String?,
     val startAt: Instant,
     val endAt: Instant,
+    val reviewDays: Int,
 )
