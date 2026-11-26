@@ -44,3 +44,6 @@ data class AvatarRequest(val avatarUrl: String? = null) {
         const val URL_MAX = 2048
     }
 }
+
+/** Body of `PUT /users/{userId}/role`. */
+data class RoleRequest(val role: UserRole)

@@ -53,7 +53,7 @@ gmm:
     cookie-secure: ${GMM_SESSION_COOKIE_SECURE:true}
     ttl: ${GMM_SESSION_TTL:14d}
   admin:
-    # DataGSM account emails that are admins. Everyone else is a user; removing an email revokes admin.
+    # DataGSM emails of owners: always admins, and the only ones who can grant or revoke admin for others.
     emails: ${GMM_ADMIN_EMAILS:}
   datagsm:
     client-id: ${DATAGSM_CLIENT_ID:}

@@ -5,14 +5,15 @@ import com.gmm.global.config.GmmProperties
 import org.springframework.stereotype.Component
 
 /**
- * `gmm.admin.emails` is the only source of the admin role: listed emails are admins and
- * everyone else is a user. Removing an email takes effect on that user's next request.
+ * Emails in `gmm.admin.emails` are owners: always admins, and the only users who can grant or
+ * revoke admin for others. Everyone else keeps the role stored in the DB.
  */
 @Component
 class AdminPolicy(properties: GmmProperties) {
-    private val adminEmails: Set<String> =
+    private val ownerEmails: Set<String> =
         properties.admin.emails.map { it.trim().lowercase() }.filter { it.isNotEmpty() }.toSet()
 
-    fun roleFor(email: String): UserRole =
-        if (email.trim().lowercase() in adminEmails) UserRole.ADMIN else UserRole.USER
+    fun isOwner(email: String): Boolean = email.trim().lowercase() in ownerEmails
+
+    fun roleFor(email: String, stored: UserRole): UserRole = if (isOwner(email)) UserRole.ADMIN else stored
 }

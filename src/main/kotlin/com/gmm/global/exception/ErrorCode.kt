@@ -30,6 +30,8 @@ enum class ErrorCode(val status: HttpStatus, val message: String) {
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "사용자를 찾을 수 없어요."),
     INVALID_AVATAR(HttpStatus.BAD_REQUEST, "프로필 사진 주소가 올바르지 않아요. 이미지를 다시 올려 주세요."),
+    OWNER_ONLY(HttpStatus.FORBIDDEN, "최초 어드민만 어드민 권한을 바꿀 수 있어요."),
+    OWNER_ROLE_FIXED(HttpStatus.BAD_REQUEST, "최초 어드민의 권한은 바꿀 수 없어요."),
 
     // Jam
     JAM_NOT_FOUND(HttpStatus.NOT_FOUND, "게임잼을 찾을 수 없어요."),
