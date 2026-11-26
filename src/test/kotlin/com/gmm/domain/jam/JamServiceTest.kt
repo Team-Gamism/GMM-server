@@ -45,10 +45,11 @@ class JamServiceTest :
                 null,
                 Instant.parse("2026-11-18T00:00:00Z"),
                 Instant.parse("2026-11-20T00:00:00Z"),
+                7,
             )
 
         fun jam(id: String = "jam") =
-            Jam(id, "잼", "", "주제", null, details.startAt, details.endAt, admin.id, now.minusSeconds(60))
+            Jam(id, "잼", "", "주제", null, details.startAt, details.endAt, 7, admin.id, now.minusSeconds(60))
 
         beforeEach {
             clearAllMocks()

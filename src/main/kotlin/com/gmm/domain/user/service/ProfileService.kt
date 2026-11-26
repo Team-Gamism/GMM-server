@@ -1,6 +1,5 @@
 package com.gmm.domain.user.service
 
-import com.gmm.domain.game.entity.ReviewStatus
 import com.gmm.domain.game.repository.GameRepository
 import com.gmm.domain.game.service.GameSummaries
 import com.gmm.domain.jam.entity.JamAward
@@ -27,11 +26,17 @@ class ProfileService(
     private val gameSummaries: GameSummaries,
     private val clock: Clock,
 ) {
-    /** Only approved games and awards of announced jams count, as in the frontend mock. */
+    /** Only games of jams whose submissions closed and awards of announced jams count, as in the frontend. */
     @Transactional(readOnly = true)
     fun profile(userId: String): UserProfileResponse {
         val user = userRepository.findById(userId).orElseThrow { GmmException(ErrorCode.USER_NOT_FOUND) }
-        val games = gameRepository.findAllByOwnerIdAndReviewStatusOrderByCreatedAtDesc(user.id, ReviewStatus.APPROVED)
+        val owned = gameRepository.findAllByOwnerIdOrderByCreatedAtDesc(user.id)
+        val now = clock.instant()
+        val publicJamIds = jamRepository.findAllById(owned.map { it.jamId }.toSet())
+            .filter { it.statusAt(now).isPublic }
+            .map { it.id }
+            .toSet()
+        val games = owned.filter { it.jamId in publicJamIds }
         val titles = games.associate { it.id to it.title }
 
         val awards = jamAwardRepository.findAllByGameIdIn(titles.keys)

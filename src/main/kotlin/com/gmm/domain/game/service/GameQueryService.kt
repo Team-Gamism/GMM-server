@@ -3,14 +3,15 @@ package com.gmm.domain.game.service
 import com.gmm.domain.game.entity.Game
 import com.gmm.domain.game.entity.Genre
 import com.gmm.domain.game.entity.Orientation
-import com.gmm.domain.game.entity.ReviewStatus
 import com.gmm.domain.game.presentation.GameSummaryResponse
 import com.gmm.domain.game.repository.GameRepository
+import com.gmm.domain.jam.repository.JamRepository
 import com.gmm.global.auth.AuthUser
 import com.gmm.global.exception.ErrorCode
 import com.gmm.global.exception.GmmException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.time.Clock
 import java.util.Locale
 
 data class GameQuery(
@@ -20,7 +21,7 @@ data class GameQuery(
     val orientation: Orientation? = null,
     val q: String? = null,
     val sort: GameSort = GameSort.RECENT,
-    val includeUnapproved: Boolean = false,
+    val includeHidden: Boolean = false,
 )
 
 enum class GameSort { RECENT, RATING }
@@ -30,14 +31,24 @@ enum class GameSort { RECENT, RATING }
  * search run in memory on that result, because search also matches the owner name and genre label.
  */
 @Service
-class GameQueryService(private val gameRepository: GameRepository, private val gameSummaries: GameSummaries) {
+class GameQueryService(
+    private val gameRepository: GameRepository,
+    private val jamRepository: JamRepository,
+    private val gameSummaries: GameSummaries,
+    private val clock: Clock,
+) {
     @Transactional(readOnly = true)
     fun list(user: AuthUser?, query: GameQuery): List<GameSummaryResponse> {
-        // Unapproved games are mixed in only on request (own games list or admin review), and only those the caller may see.
-        val withUnapproved = query.ownerId != null || query.includeUnapproved
+        // Games of jams still open for submissions are mixed in only on request (own games list or admin),
+        // and only those the caller may see.
+        val withHidden = query.ownerId != null || query.includeHidden
+        val found = gameRepository.findAllByJamAndOwner(query.jamId, query.ownerId)
+        val now = clock.instant()
+        val statuses = jamRepository.findAllById(found.map { it.jamId }.toSet()).associate { it.id to it.statusAt(now) }
         val games =
-            gameRepository.findAllByJamAndOwner(query.jamId, query.ownerId).filter { game ->
-                (game.reviewStatus == ReviewStatus.APPROVED || (withUnapproved && game.isVisibleTo(user))) &&
+            found.filter { game ->
+                val status = statuses[game.jamId] ?: return@filter false
+                (status.isPublic || (withHidden && game.isVisibleTo(user, status))) &&
                     (query.genre == null || game.genre == query.genre) &&
                     (query.orientation == null || game.orientation == query.orientation)
             }
@@ -62,8 +73,9 @@ class GameQueryService(private val gameRepository: GameRepository, private val g
     }
 
     private fun findVisible(user: AuthUser?, gameId: String): Game {
-        val game = gameRepository.findById(gameId).orElse(null)
-        if (game == null || !game.isVisibleTo(user)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
+        val game = gameRepository.findById(gameId).orElse(null) ?: throw GmmException(ErrorCode.GAME_NOT_FOUND)
+        val status = jamRepository.findById(game.jamId).orElse(null)?.statusAt(clock.instant())
+        if (status == null || !game.isVisibleTo(user, status)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
         return game
     }
 

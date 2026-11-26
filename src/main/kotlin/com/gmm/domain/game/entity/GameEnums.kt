@@ -40,12 +40,6 @@ enum class Orientation(@get:JsonValue val value: String) {
     }
 }
 
-enum class ReviewStatus(@get:JsonValue val value: String) {
-    PENDING("pending"),
-    APPROVED("approved"),
-    REJECTED("rejected"),
-}
-
 enum class Platform(@get:JsonValue val label: String) {
     PC("PC"),
     MOBILE("모바일"),

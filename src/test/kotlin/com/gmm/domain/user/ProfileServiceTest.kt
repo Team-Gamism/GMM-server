@@ -6,7 +6,6 @@ import com.gmm.domain.game.entity.GameDetails
 import com.gmm.domain.game.entity.Genre
 import com.gmm.domain.game.entity.Orientation
 import com.gmm.domain.game.entity.Platform
-import com.gmm.domain.game.entity.ReviewStatus
 import com.gmm.domain.game.repository.GameRepository
 import com.gmm.domain.game.service.GameSummaries
 import com.gmm.domain.jam.entity.Jam
@@ -49,9 +48,9 @@ class ProfileServiceTest :
         )
         val user = User("u1", 1, "u1@gsm.hs.kr", "김하늘", "1101", UserRole.USER, now)
 
-        fun game(id: String) = Game(
+        fun game(id: String, jamId: String = "jam") = Game(
             id,
-            "jam",
+            jamId,
             user.id,
             GameDetails(
                 "게임 $id", "", "", Genre.ACTION, null, Orientation.LANDSCAPE,
@@ -64,17 +63,21 @@ class ProfileServiceTest :
             now,
         )
 
-        fun jam(id: String, start: String, announced: Boolean) =
-            Jam(id, "잼 $id", "", "주제", null, Instant.parse(start), Instant.parse(start).plusSeconds(3600), "admin", now)
+        fun jam(id: String, start: String, announced: Boolean): Jam {
+            val startAt = Instant.parse(start)
+            return Jam(id, "잼 $id", "", "주제", null, startAt, startAt.plusSeconds(3600), 7, "admin", now)
                 .also { if (announced) it.announce(now) }
+        }
 
-        test("counts approved entries and rank-1 awards of announced jams only") {
+        test("counts entries of closed jams and rank-1 awards of announced jams only") {
             val games = listOf(game("g1"), game("g2"))
             every { userRepository.findById("u1") } returns Optional.of(user)
-            every {
-                gameRepository.findAllByOwnerIdAndReviewStatusOrderByCreatedAtDesc("u1", ReviewStatus.APPROVED)
-            } returns
-                games
+            every { gameRepository.findAllByOwnerIdOrderByCreatedAtDesc("u1") } returns
+                games + game("g3", jamId = "open")
+            every { jamRepository.findAllById(setOf("jam", "open")) } returns listOf(
+                jam("jam", "2026-11-01T00:00:00Z", announced = false),
+                jam("open", "2026-11-20T23:00:00Z", announced = false), // still taking submissions
+            )
             every { awardRepository.findAllByGameIdIn(setOf("g1", "g2")) } returns listOf(
                 JamAward("old", "g1", 1, "대상"),
                 JamAward("new", "g2", 2, "최우수상"),

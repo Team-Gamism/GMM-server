@@ -50,6 +50,7 @@ class JamService(
                 coverUrl = details.coverUrl,
                 startAt = details.startAt,
                 endAt = details.endAt,
+                reviewDays = details.reviewDays,
                 hostId = user.id,
                 createdAt = clock.nowMillis(),
             ),

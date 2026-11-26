@@ -2,6 +2,7 @@ package com.gmm.domain.review.service
 
 import com.gmm.domain.game.entity.Game
 import com.gmm.domain.game.repository.GameRepository
+import com.gmm.domain.jam.entity.JamStatus
 import com.gmm.domain.jam.repository.JamRepository
 import com.gmm.domain.review.entity.Review
 import com.gmm.domain.review.presentation.ReviewRequest
@@ -51,10 +52,9 @@ class ReviewService(
     /** One review per user per game: creates it the first time, then updates it. */
     @Transactional
     fun upsertMine(user: AuthUser, gameId: String, request: ReviewRequest): ReviewResponse {
-        val game = findVisibleGame(user, gameId)
+        val (game, status) = findVisibleGame(user, gameId)
         if (game.isOwnedBy(user)) throw GmmException(ErrorCode.REVIEW_OWN_GAME)
-        val jam = jamRepository.findById(game.jamId).orElseThrow { GmmException(ErrorCode.GAME_NOT_FOUND) }
-        if (!jam.statusAt(clock.instant()).acceptsReviews) throw GmmException(ErrorCode.REVIEW_NOT_OPEN)
+        if (!status.acceptsReviews) throw GmmException(ErrorCode.REVIEW_NOT_OPEN)
         val scores = request.toScores()
         val comment = request.toComment()
 
@@ -78,10 +78,11 @@ class ReviewService(
         reviewRepository.delete(review)
     }
 
-    private fun findVisibleGame(user: AuthUser?, gameId: String): Game {
-        val game = gameRepository.findById(gameId).orElse(null)
-        if (game == null || !game.isVisibleTo(user)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
-        return game
+    private fun findVisibleGame(user: AuthUser?, gameId: String): Pair<Game, JamStatus> {
+        val game = gameRepository.findById(gameId).orElse(null) ?: throw GmmException(ErrorCode.GAME_NOT_FOUND)
+        val status = jamRepository.findById(game.jamId).orElse(null)?.statusAt(clock.instant())
+        if (status == null || !game.isVisibleTo(user, status)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
+        return game to status
     }
 
     companion object {

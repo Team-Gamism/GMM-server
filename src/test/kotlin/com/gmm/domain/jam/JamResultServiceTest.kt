@@ -6,7 +6,6 @@ import com.gmm.domain.game.entity.GameDetails
 import com.gmm.domain.game.entity.Genre
 import com.gmm.domain.game.entity.Orientation
 import com.gmm.domain.game.entity.Platform
-import com.gmm.domain.game.entity.ReviewStatus
 import com.gmm.domain.game.presentation.GameResponse
 import com.gmm.domain.game.presentation.GameSummaryResponse
 import com.gmm.domain.game.repository.GameRepository
@@ -71,13 +70,13 @@ class JamResultServiceTest :
             ),
             GameBuild("$id/b", "B", "b.zip"),
             now,
-        ).also { it.approve() }
+        )
 
         fun summary(game: Game, average: Double?) =
             GameSummaryResponse(GameResponse.from(game) { it }, "제작자", "잼", if (average == null) 0 else 1, average)
 
         fun setJam(start: String, end: String) {
-            jam = Jam("jam", "잼", "", "주제", null, Instant.parse(start), Instant.parse(end), "admin", now)
+            jam = Jam("jam", "잼", "", "주제", null, Instant.parse(start), Instant.parse(end), 7, "admin", now)
             every { jamRepository.findById("jam") } returns Optional.of(jam)
         }
 
@@ -85,11 +84,9 @@ class JamResultServiceTest :
 
         beforeEach {
             clearAllMocks()
-            setJam("2026-11-18T00:00:00Z", "2026-11-20T00:00:00Z") // judging
-            every {
-                gameRepository.findAllByJamIdAndReviewStatusOrderByCreatedAtAsc("jam", ReviewStatus.APPROVED)
-            } returns
-                games
+            setJam("2026-11-10T00:00:00Z", "2026-11-12T00:00:00Z") // judging since 11-19
+            every { gameRepository.findAllByJamIdOrderByCreatedAtAsc("jam") } returns games
+            every { gameRepository.findIdsByJamId("jam") } returns games.map { it.id }
             every { awardRepository.saveAll(any<List<JamAward>>()) } answers { firstArg() }
         }
 
@@ -141,9 +138,12 @@ class JamResultServiceTest :
             service.announce(admin, "jam", AwardsRequest(emptyList())).announcedAt shouldBe now
         }
 
-        test("announce is rejected before the jam ends and for non-admins") {
+        test("announce is rejected before the rating period ends and for non-admins") {
             shouldThrow<GmmException> { service.announce(user, "jam", AwardsRequest(emptyList())) }.code shouldBe
                 ErrorCode.ADMIN_ONLY
+            setJam("2026-11-12T00:00:00Z", "2026-11-14T00:00:00Z") // reviewing until exactly now
+            shouldThrow<GmmException> { service.announce(admin, "jam", AwardsRequest(emptyList())) }.message shouldBe
+                "평가 기간이 끝난 뒤에 결과를 발표할 수 있어요."
             setJam("2026-11-20T00:00:00Z", "2026-11-22T00:00:00Z") // ongoing
             shouldThrow<GmmException> { service.announce(admin, "jam", AwardsRequest(emptyList())) }.code shouldBe
                 ErrorCode.JAM_NOT_FINISHED
@@ -157,7 +157,7 @@ class JamResultServiceTest :
             fun rejected(vararg awards: AwardRequest) =
                 shouldThrow<GmmException> { service.announce(admin, "jam", AwardsRequest(awards.toList())) }.message
 
-            rejected(AwardRequest("other-jam-game", 1, "대상")) shouldContain "확인 완료된 게임"
+            rejected(AwardRequest("other-jam-game", 1, "대상")) shouldContain "이 게임잼의 게임"
             rejected(AwardRequest("a", 1, "대상"), AwardRequest("a", 2, "우수상")) shouldContain "두 번"
             rejected(AwardRequest("a", 0, "대상")) shouldContain "순위"
             rejected(AwardRequest("a", 1, " ")) shouldContain "상 이름을 입력"

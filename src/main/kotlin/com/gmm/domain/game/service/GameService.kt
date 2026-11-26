@@ -4,7 +4,6 @@ import com.gmm.domain.build.storage.BuildStorage
 import com.gmm.domain.game.entity.Game
 import com.gmm.domain.game.entity.GameBuild
 import com.gmm.domain.game.entity.GameDetails
-import com.gmm.domain.game.entity.ReviewStatus
 import com.gmm.domain.game.repository.GameRepository
 import com.gmm.domain.jam.repository.JamRepository
 import com.gmm.global.auth.AuthUser
@@ -64,13 +63,12 @@ class GameService(
     }
 
     /**
-     * Owners and admins edit the details at any time. Like uploads, only an ongoing jam takes a new build from
-     * participants, so the build that was judged cannot be swapped afterwards.
+     * Owners and admins edit the details and the build only while the jam is ongoing, admins included,
+     * so the game that is rated cannot change afterwards. Deleting stays possible.
      */
     @Transactional(readOnly = true)
-    fun checkCanUpdate(user: AuthUser, gameId: String, replacesBuild: Boolean) {
-        val game = findManageable(user, gameId)
-        if (replacesBuild) checkCanUpload(user, game.jamId)
+    fun checkCanUpdate(user: AuthUser, gameId: String) {
+        findManageable(user, gameId)
     }
 
     /**
@@ -79,9 +77,8 @@ class GameService(
      */
     @Transactional
     fun update(user: AuthUser, gameId: String, details: GameDetails, build: GameBuild?): Game {
+        // Checks again: the jam can end while the build is processed.
         val game = findManageable(user, gameId)
-        // Check again: the jam can end while the build is processed.
-        if (build != null) checkCanUpload(user, game.jamId)
         val now = clock.nowMillis()
         game.updateDetails(details, now)
         if (build != null) {
@@ -96,43 +93,25 @@ class GameService(
      */
     @Transactional
     fun delete(user: AuthUser, gameId: String) {
-        val game = findManageable(user, gameId, ErrorCode.GAME_DELETE_NOT_OWNER)
+        val game = findManageable(user, gameId, forDelete = true)
         gameRepository.delete(game)
         afterCommit { buildStorage.deleteGame(game.id) }
     }
 
-    /** Admin upload review. A reject reason is kept only for `rejected`; blank becomes "사유 없음". */
-    @Transactional
-    fun setUploadStatus(user: AuthUser, gameId: String, status: ReviewStatus, reason: String?): Game {
-        user.requireAdmin()
-        val game = gameRepository.findById(gameId).orElseThrow { GmmException(ErrorCode.GAME_NOT_FOUND) }
-        val now = clock.nowMillis()
-        when (status) {
-            ReviewStatus.APPROVED -> game.approve(now)
-
-            ReviewStatus.PENDING -> game.markPending(now)
-
-            ReviewStatus.REJECTED -> {
-                val trimmed = reason?.trim().orEmpty()
-                if (trimmed.length > REJECT_REASON_MAX) {
-                    throw GmmException(ErrorCode.INVALID_UPLOAD_STATUS, "반려 사유는 ${REJECT_REASON_MAX}자 이하로 입력해 주세요.")
-                }
-                game.reject(trimmed.ifEmpty { NO_REASON }, now)
-            }
+    /** The game if [user] may change it; for edits ([forDelete] false) also only while the jam is ongoing. */
+    private fun findManageable(user: AuthUser, gameId: String, forDelete: Boolean = false): Game {
+        val game = gameRepository.findById(gameId).orElse(null) ?: throw GmmException(ErrorCode.GAME_NOT_FOUND)
+        val status = jamRepository.findById(game.jamId).orElseThrow { GmmException(ErrorCode.GAME_NOT_FOUND) }
+            .statusAt(clock.instant())
+        if (!game.isVisibleTo(user, status)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
+        if (!game.canManage(user)) {
+            throw GmmException(if (forDelete) ErrorCode.GAME_DELETE_NOT_OWNER else ErrorCode.GAME_NOT_OWNER)
         }
-        return game
-    }
-
-    private fun findManageable(user: AuthUser, gameId: String, notOwner: ErrorCode = ErrorCode.GAME_NOT_OWNER): Game {
-        val game = gameRepository.findById(gameId).orElse(null)
-        if (game == null || !game.isVisibleTo(user)) throw GmmException(ErrorCode.GAME_NOT_FOUND)
-        if (!game.canManage(user)) throw GmmException(notOwner)
+        if (!forDelete && !status.acceptsUploads) throw GmmException(ErrorCode.GAME_EDIT_CLOSED)
         return game
     }
 
     companion object {
-        const val REJECT_REASON_MAX = 500
         const val MAX_GAMES_PER_JAM = 1
-        const val NO_REASON = "사유 없음"
     }
 }
